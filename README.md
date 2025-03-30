@@ -27,12 +27,15 @@
 ## 环境要求
 
 - macOS（已在macOS 24.1.0上测试）
+- Windows 10/11（需要额外配置）
 - Python 3.8+
 - OpenJDK 11
 - Hadoop 3.4.1
 - Kerberos (krb5 1.21.3)
 
 ## 安装步骤
+
+### macOS/Linux环境
 
 1. 克隆项目并创建虚拟环境：
 ```bash
@@ -42,8 +45,19 @@ python3 -m venv venv
 source venv/bin/activate
 ```
 
+### Windows环境
+
+1. 克隆项目并创建虚拟环境：
+```powershell
+git clone <repository-url>
+cd kerberos
+python -m venv venv
+.\venv\Scripts\activate
+```
+
 2. 安装Python依赖：
 ```bash
+python -m pip install --upgrade pip
 pip install -r requirements.txt
 ```
 
