@@ -2,237 +2,207 @@ import subprocess
 import logging
 from typing import Dict, List, Optional
 import os
+import requests
+from urllib.parse import urljoin
+import time
 
 class HadoopServiceManager:
     def __init__(self, config_path: str):
         self.config_path = config_path
         self.logger = logging.getLogger(__name__)
+        
+        # 伪分布式环境服务配置
         self.services = {
             'namenode': {
-                'host': 'master-node',
-                'start_cmd': 'hadoop-daemon.sh start namenode',
-                'stop_cmd': 'hadoop-daemon.sh stop namenode',
+                'host': 'localhost',
+                'port': 9870,
+                'start_cmd': 'hdfs --daemon start namenode',
+                'stop_cmd': 'hdfs --daemon stop namenode',
                 'status_cmd': 'jps | grep NameNode',
+                'web_url': 'http://localhost:9870',
+                'required_role': 'hdfs_admin'
             },
             'datanode': {
-                'hosts': ['slave-node1', 'slave-node2'],
-                'start_cmd': 'hadoop-daemon.sh start datanode',
-                'stop_cmd': 'hadoop-daemon.sh stop datanode',
+                'host': 'localhost',
+                'port': 9864,
+                'start_cmd': 'hdfs --daemon start datanode',
+                'stop_cmd': 'hdfs --daemon stop datanode',
                 'status_cmd': 'jps | grep DataNode',
+                'web_url': 'http://localhost:9864',
+                'required_role': 'hdfs_admin'
             },
             'resourcemanager': {
-                'host': 'master-node',
-                'start_cmd': 'yarn-daemon.sh start resourcemanager',
-                'stop_cmd': 'yarn-daemon.sh stop resourcemanager',
+                'host': 'localhost',
+                'port': 8088,
+                'start_cmd': 'yarn --daemon start resourcemanager',
+                'stop_cmd': 'yarn --daemon stop resourcemanager',
                 'status_cmd': 'jps | grep ResourceManager',
+                'web_url': 'http://localhost:8088',
+                'required_role': 'yarn_admin'
             },
             'nodemanager': {
-                'hosts': ['slave-node1', 'slave-node2'],
-                'start_cmd': 'yarn-daemon.sh start nodemanager',
-                'stop_cmd': 'yarn-daemon.sh stop nodemanager',
+                'host': 'localhost',
+                'port': 8042,
+                'start_cmd': 'yarn --daemon start nodemanager',
+                'stop_cmd': 'yarn --daemon stop nodemanager',
                 'status_cmd': 'jps | grep NodeManager',
+                'web_url': 'http://localhost:8042',
+                'required_role': 'yarn_admin'
             },
             'hiveserver2': {
-                'host': 'master-node',
-                'start_cmd': 'hiveserver2',
+                'host': 'localhost',
+                'port': 10000,
+                'start_cmd': '$HIVE_HOME/bin/hiveserver2',
                 'stop_cmd': 'pkill -f hiveserver2',
                 'status_cmd': 'jps | grep HiveServer2',
+                'jdbc_url': 'jdbc:hive2://localhost:10000',
+                'required_role': 'hive_admin'
             }
         }
 
-    def execute_remote_command(self, host: str, command: str, user: str) -> bool:
-        """
-        在远程主机上执行命令
-        
-        Args:
-            host: 主机名
-            command: 要执行的命令
-            user: 执行命令的用户
-            
-        Returns:
-            bool: 命令是否执行成功
-        """
+    def check_service_health(self, service_name: str) -> bool:
+        """检查服务健康状态"""
+        service = self.services.get(service_name)
+        if not service:
+            return False
+
         try:
-            ssh_command = f'ssh {user}@{host} "source /etc/profile && {command}"'
-            result = subprocess.run(ssh_command, shell=True, check=True)
-            return result.returncode == 0
-        except subprocess.CalledProcessError as e:
-            self.logger.error(f"在{host}上执行命令失败: {e}")
-            return False
-
-    def start_service(self, service_name: str, user: str) -> bool:
-        """
-        启动指定的Hadoop服务
-        
-        Args:
-            service_name: 服务名称
-            user: 执行命令的用户
-            
-        Returns:
-            bool: 服务是否成功启动
-        """
-        service = self.services.get(service_name)
-        if not service:
-            self.logger.error(f"未知服务: {service_name}")
-            return False
-
-        if 'host' in service:
-            # 单节点服务
-            return self.execute_remote_command(
-                service['host'],
-                service['start_cmd'],
-                user
-            )
-        elif 'hosts' in service:
-            # 多节点服务
-            success = True
-            for host in service['hosts']:
-                if not self.execute_remote_command(host, service['start_cmd'], user):
-                    success = False
-            return success
-        return False
-
-    def stop_service(self, service_name: str, user: str) -> bool:
-        """
-        停止指定的Hadoop服务
-        
-        Args:
-            service_name: 服务名称
-            user: 执行命令的用户
-            
-        Returns:
-            bool: 服务是否成功停止
-        """
-        service = self.services.get(service_name)
-        if not service:
-            self.logger.error(f"未知服务: {service_name}")
-            return False
-
-        if 'host' in service:
-            # 单节点服务
-            return self.execute_remote_command(
-                service['host'],
-                service['stop_cmd'],
-                user
-            )
-        elif 'hosts' in service:
-            # 多节点服务
-            success = True
-            for host in service['hosts']:
-                if not self.execute_remote_command(host, service['stop_cmd'], user):
-                    success = False
-            return success
-        return False
-
-    def check_service_status(self, service_name: str, user: str) -> Dict[str, bool]:
-        """
-        检查指定服务的状态
-        
-        Args:
-            service_name: 服务名称
-            user: 执行命令的用户
-            
-        Returns:
-            Dict[str, bool]: 各节点的服务状态
-        """
-        service = self.services.get(service_name)
-        if not service:
-            self.logger.error(f"未知服务: {service_name}")
-            return {}
-
-        status = {}
-        if 'host' in service:
-            # 单节点服务
-            status[service['host']] = self.execute_remote_command(
-                service['host'],
+            # 检查进程是否存在
+            result = subprocess.run(
                 service['status_cmd'],
-                user
+                shell=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True
             )
-        elif 'hosts' in service:
-            # 多节点服务
-            for host in service['hosts']:
-                status[host] = self.execute_remote_command(
-                    host,
-                    service['status_cmd'],
-                    user
-                )
+            if result.returncode != 0:
+                return False
+
+            # 检查Web界面是否可访问（如果有）
+            if 'web_url' in service:
+                try:
+                    response = requests.get(service['web_url'], timeout=5)
+                    return response.status_code == 200
+                except:
+                    return False
+
+            return True
+        except Exception as e:
+            self.logger.error(f"检查服务 {service_name} 状态失败: {e}")
+            return False
+
+    def execute_command(self, command: str) -> bool:
+        """在本地执行命令"""
+        try:
+            # 设置环境变量
+            env = os.environ.copy()
+            if 'HADOOP_HOME' not in env:
+                env['HADOOP_HOME'] = '/usr/local/hadoop'  # 根据实际安装路径调整
+            if 'HIVE_HOME' not in env:
+                env['HIVE_HOME'] = '/usr/local/hive'  # 根据实际安装路径调整
+            if 'JAVA_HOME' not in env:
+                env['JAVA_HOME'] = '/usr/lib/jvm/java-8-openjdk'  # 根据实际安装路径调整
+
+            result = subprocess.run(
+                command,
+                shell=True,
+                env=env,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True
+            )
+            
+            if result.returncode != 0:
+                self.logger.error(f"命令执行失败: {result.stderr}")
+                return False
+            return True
+        except Exception as e:
+            self.logger.error(f"执行命令失败: {e}")
+            return False
+
+    def check_user_permission(self, username: str, service_name: str) -> bool:
+        """检查用户是否有权限操作服务"""
+        service = self.services.get(service_name)
+        if not service:
+            return False
+            
+        required_role = service.get('required_role')
+        if not required_role:
+            return False
+            
+        # TODO: 从数据库或其他地方检查用户角色
+        # 这里暂时返回True，您需要根据实际情况实现权限检查
+        return True
+
+    def start_service(self, service_name: str, username: str) -> bool:
+        """启动指定服务"""
+        if not self.check_user_permission(username, service_name):
+            self.logger.warning(f"用户 {username} 没有权限启动服务 {service_name}")
+            return False
+
+        service = self.services.get(service_name)
+        if not service:
+            self.logger.error(f"未知服务: {service_name}")
+            return False
+
+        if self.check_service_health(service_name):
+            self.logger.info(f"服务 {service_name} 已经在运行")
+            return True
+
+        return self.execute_command(service['start_cmd'])
+
+    def stop_service(self, service_name: str, username: str) -> bool:
+        """停止指定服务"""
+        if not self.check_user_permission(username, service_name):
+            self.logger.warning(f"用户 {username} 没有权限停止服务 {service_name}")
+            return False
+
+        service = self.services.get(service_name)
+        if not service:
+            self.logger.error(f"未知服务: {service_name}")
+            return False
+
+        return self.execute_command(service['stop_cmd'])
+
+    def check_service_status(self, service_name: str) -> Dict[str, bool]:
+        """检查服务状态"""
+        service = self.services.get(service_name)
+        if not service:
+            return {'running': False, 'healthy': False}
+
+        is_running = self.check_service_health(service_name)
+        return {
+            'running': is_running,
+            'healthy': is_running,
+            'web_url': service.get('web_url'),
+            'jdbc_url': service.get('jdbc_url')
+        }
+
+    def check_all_services(self, username: Optional[str] = None) -> Dict[str, Dict[str, bool]]:
+        """检查所有服务的状态"""
+        status = {}
+        for service_name in self.services:
+            if username and not self.check_user_permission(username, service_name):
+                continue
+            status[service_name] = self.check_service_status(service_name)
         return status
 
-    def start_hdfs(self, user: str) -> bool:
-        """
-        启动HDFS服务
-        
-        Args:
-            user: 执行命令的用户
-            
-        Returns:
-            bool: 是否成功启动
-        """
-        # 首先启动NameNode
-        if not self.start_service('namenode', user):
-            return False
-        
-        # 然后启动DataNode
-        return self.start_service('datanode', user)
-
-    def start_yarn(self, user: str) -> bool:
-        """
-        启动YARN服务
-        
-        Args:
-            user: 执行命令的用户
-            
-        Returns:
-            bool: 是否成功启动
-        """
-        # 首先启动ResourceManager
-        if not self.start_service('resourcemanager', user):
-            return False
-        
-        # 然后启动NodeManager
-        return self.start_service('nodemanager', user)
-
-    def start_hive(self, user: str) -> bool:
-        """
-        启动Hive服务
-        
-        Args:
-            user: 执行命令的用户
-            
-        Returns:
-            bool: 是否成功启动
-        """
-        return self.start_service('hiveserver2', user)
-
-    def stop_all_services(self, user: str) -> bool:
-        """
-        停止所有Hadoop服务
-        
-        Args:
-            user: 执行命令的用户
-            
-        Returns:
-            bool: 是否成功停止所有服务
-        """
+    def start_all_services(self, username: str) -> bool:
+        """启动所有服务"""
         success = True
-        # 按照依赖关系的相反顺序停止服务
-        services_to_stop = ['hiveserver2', 'nodemanager', 'resourcemanager', 'datanode', 'namenode']
-        for service in services_to_stop:
-            if not self.stop_service(service, user):
+        # 按照依赖关系顺序启动服务
+        service_order = ['namenode', 'datanode', 'resourcemanager', 'nodemanager', 'hiveserver2']
+        for service in service_order:
+            if not self.start_service(service, username):
                 success = False
         return success
 
-    def check_all_services(self, user: str) -> Dict[str, Dict[str, bool]]:
-        """
-        检查所有服务的状态
-        
-        Args:
-            user: 执行命令的用户
-            
-        Returns:
-            Dict[str, Dict[str, bool]]: 所有服务的状态
-        """
-        status = {}
-        for service in self.services:
-            status[service] = self.check_service_status(service, user)
-        return status 
+    def stop_all_services(self, username: str) -> bool:
+        """停止所有服务"""
+        success = True
+        # 按照依赖关系的相反顺序停止服务
+        service_order = ['hiveserver2', 'nodemanager', 'resourcemanager', 'datanode', 'namenode']
+        for service in service_order:
+            if not self.stop_service(service, username):
+                success = False
+        return success 
