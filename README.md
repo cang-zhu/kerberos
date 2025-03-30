@@ -35,7 +35,139 @@
 
 ## 安装步骤
 
-### macOS/Linux环境
+### 1. KDC服务器安装与配置
+
+#### Unix/Linux/macOS环境
+
+1. 安装Kerberos
+```bash
+# macOS
+brew install krb5
+
+# Ubuntu/Debian
+sudo apt-get install krb5-kdc krb5-admin-server
+
+# CentOS/RHEL
+sudo yum install krb5-server krb5-libs krb5-workstation
+```
+
+2. 配置KDC
+```bash
+# 1. 复制配置文件模板
+cp config/krb5.conf.example config/krb5.conf
+cp config/kdc.conf.example config/kdc.conf
+
+# 2. 编辑krb5.conf，设置realm信息
+# [libdefaults]
+# default_realm = HADOOP.COM
+#
+# [realms]
+# HADOOP.COM = {
+#     kdc = localhost:88
+#     admin_server = localhost:749
+# }
+
+# 3. 编辑kdc.conf，设置KDC参数
+# [kdcdefaults]
+# kdc_ports = 88
+# kdc_tcp_ports = 88
+#
+# [realms]
+# HADOOP.COM = {
+#     database_name = /var/krb5kdc/principal
+#     admin_keytab = /var/krb5kdc/kadm5.keytab
+#     acl_file = /var/krb5kdc/kadm5.acl
+#     key_strata = 0
+#     max_life = 10h 0m 0s
+#     max_renewable_life = 7d 0h 0m 0s
+# }
+```
+
+3. 初始化KDC数据库
+```bash
+# Unix系统
+sudo kdb5_util create -s -r HADOOP.COM
+
+# 按提示设置KDC数据库的主密码
+```
+
+4. 创建管理员主体
+```bash
+# 创建管理员账号
+sudo kadmin.local -q "addprinc admin/admin"
+
+# 配置管理员权限
+echo "*/admin@HADOOP.COM *" | sudo tee /var/krb5kdc/kadm5.acl
+```
+
+5. 启动KDC服务
+```bash
+# Unix系统
+sudo systemctl start krb5-kdc
+sudo systemctl start krb5-admin-server
+
+# 或者直接启动
+sudo krb5kdc
+sudo kadmind
+```
+
+#### Windows环境
+
+1. 安装 MIT Kerberos for Windows
+   - 从官方网站下载安装包：https://web.mit.edu/kerberos/dist/
+   - 运行安装程序，选择"Custom Installation"
+   - 确保选中"KDC"和"Development Libraries"组件
+   - 完成安装后重启系统
+
+2. 配置 KDC
+   - 打开 `C:\ProgramData\MIT\Kerberos5\krb5.ini`（如果不存在则创建）
+   - 将项目中的 `config/krb5.conf` 内容复制到此文件
+   - 创建目录 `C:\ProgramData\MIT\Kerberos5\KDC`
+   - 将项目中的 `config/kdc.conf` 复制到此目录
+
+3. 初始化 KDC 数据库
+   ```cmd
+   # 以管理员身份打开命令提示符
+   cd C:\Program Files\MIT\Kerberos\bin
+   kdb5_util create -s -r HADOOP.COM
+   ```
+
+4. 创建管理员主体
+   ```cmd
+   # 以管理员身份运行
+   kadmin.local -q "addprinc admin/admin"
+   
+   # 创建 kadm5.acl 文件
+   echo */admin@HADOOP.COM * > C:\ProgramData\MIT\Kerberos5\KDC\kadm5.acl
+   ```
+
+5. 配置和启动服务
+   - 打开服务管理器（services.msc）
+   - 找到"MIT Kerberos KDC"服务
+   - 将启动类型设置为"自动"
+   - 启动服务
+
+6. 验证安装
+   ```cmd
+   # 获取票据
+   kinit admin/admin
+   
+   # 查看票据
+   klist
+   
+   # 测试管理功能
+   kadmin -p admin/admin -q "listprincs"
+   ```
+
+Windows环境注意事项：
+- Windows 环境下路径使用反斜杠 `\`
+- 所有命令需要以管理员权限运行
+- 确保防火墙允许 KDC 端口（默认88）
+- 如果使用域控制器，需要避免与 Active Directory 的端口冲突
+
+### 2. 项目环境配置
+
+#### macOS/Linux环境
 
 1. 克隆项目并创建虚拟环境：
 ```bash
@@ -45,7 +177,13 @@ python3 -m venv venv
 source venv/bin/activate
 ```
 
-### Windows环境
+2. 安装Python依赖：
+```bash
+python -m pip install --upgrade pip
+pip install -r requirements.txt
+```
+
+#### Windows环境
 
 1. 克隆项目并创建虚拟环境：
 ```powershell
@@ -66,7 +204,9 @@ pip install -r requirements.txt
 - 使用 `psycopg2` 替代 `psycopg2-binary`
 - 使用 `waitress` 替代 `gunicorn`
 
-3. 配置环境变量：
+### 3. 通用配置步骤
+
+1. 配置环境变量：
 ```bash
 # 复制环境变量模板
 cp .env.example .env
@@ -81,7 +221,7 @@ cp .env.example .env
 # - KERBEROS_PATH：Kerberos可执行文件路径
 ```
 
-4. 创建必要的目录：
+2. 创建必要的目录：
 ```bash
 # 创建Hadoop数据目录
 mkdir -p $HADOOP_HOME/var/hadoop/dfs/{name,data}
@@ -92,7 +232,7 @@ mkdir -p $HADOOP_HOME/var/hadoop/tmp
 mkdir -p /var/log/krb5kdc
 ```
 
-5. 初始化数据库：
+3. 初始化数据库：
 ```bash
 flask db upgrade
 ```
@@ -124,108 +264,13 @@ start-dfs.sh
 
 3. 启动Web应用：
 ```bash
-FLASK_APP=app.py flask run --host=0.0.0.0 --port=5002
-```
+# Unix环境
+gunicorn -w 4 -b 0.0.0.0:5002 run:app
 
-## 使用说明
-
-1. 访问Web界面：`http://localhost:5002`
-2. 使用用户名和密码登录
-3. 首次登录后，系统会自动生成TOTP密钥并显示二维码
-4. 使用系统提供的TOTP密钥进行二次验证
-5. 登录成功后可以进行HDFS操作
-
-## 安全特性
-
-- 双因素认证（用户名密码 + TOTP动态密码）
-- 系统内置TOTP生成和验证
-- Kerberos票据认证
-- 基于时间的一次性密码（TOTP）
-- 安全的密钥管理
-
-## 目录结构
-
-```
-.
-├── app.py                 # Flask应用主文件
-├── config/               # 配置文件目录
-│   ├── hadoop/          # Hadoop配置
-│   └── krb5.conf        # Kerberos配置
-├── scripts/             # 脚本文件
-│   └── update_db.py     # 数据库管理脚本
-├── static/              # 静态文件
-├── templates/           # HTML模板
-└── venv/               # Python虚拟环境
-```
-
-## 注意事项
-
-1. 确保所有必要的目录权限正确
-2. 首次运行需要初始化数据库和用户
-3. 请妥善保管TOTP密钥
-4. 定期更新TOTP密钥以提高安全性
-5. 生产环境部署时请使用HTTPS 
-
-### Windows环境
-
-1. 克隆项目并创建虚拟环境：
-```powershell
-git clone <repository-url>
-cd kerberos
-python -m venv venv
-.\venv\Scripts\activate
-```
-
-2. 安装Python依赖：
-```bash
-python -m pip install --upgrade pip
-pip install -r requirements.txt
-```
-
-注意：Windows 环境下会自动安装适配的依赖：
-- 使用 `winkerberos` 替代 `python-kerberos`
-- 使用 `psycopg2` 替代 `psycopg2-binary`
-- 使用 `waitress` 替代 `gunicorn`
-
-3. 启动服务器：
-```bash
 # Windows环境
 python run.py
 # 或者使用 waitress
-waitress-serve --port=5000 run:app
-
-# Unix环境
-gunicorn -w 4 -b 0.0.0.0:5000 run:app
-```
-
-## 配置说明
-
-1. Hadoop配置：
-   - `config/hadoop/core-site.xml`：Hadoop核心配置
-   - `config/hadoop/hdfs-site.xml`：HDFS配置
-
-2. Kerberos配置：
-   - `config/krb5.conf`：Kerberos主配置
-   - `config/kdc.conf`：KDC服务器配置
-
-3. 数据库配置：
-   - 使用`scripts/update_db.py`管理用户和TOTP密钥
-
-## 启动服务
-
-1. 启动Kerberos KDC服务：
-```bash
-krb5kdc -n
-```
-
-2. 启动HDFS服务：
-```bash
-start-dfs.sh
-```
-
-3. 启动Web应用：
-```bash
-FLASK_APP=app.py flask run --host=0.0.0.0 --port=5002
+waitress-serve --port=5002 run:app
 ```
 
 ## 使用说明
