@@ -90,12 +90,14 @@ FLASK_APP=app.py flask run --host=0.0.0.0 --port=5002
 
 1. 访问Web界面：`http://localhost:5002`
 2. 使用用户名和密码登录
-3. 输入TOTP动态密码（使用Google Authenticator等工具）
-4. 登录成功后可以进行HDFS操作
+3. 首次登录后，系统会自动生成TOTP密钥并显示二维码
+4. 使用系统提供的TOTP密钥进行二次验证
+5. 登录成功后可以进行HDFS操作
 
 ## 安全特性
 
 - 双因素认证（用户名密码 + TOTP动态密码）
+- 系统内置TOTP生成和验证
 - Kerberos票据认证
 - 基于时间的一次性密码（TOTP）
 - 安全的密钥管理
