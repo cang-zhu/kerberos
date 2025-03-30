@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+
+{% block title %}TOTP 设置{% endblock %}
+
+{% block content %}
+<div class="container mt-5">
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="card">
+                <div class="card-header">
+                    <h4 class="mb-0">设置双因素认证 (2FA)</h4>
+                </div>
+                <div class="card-body">
+                    <div class="alert alert-info">
+                        <h5>请按照以下步骤设置双因素认证：</h5>
+                        <ol>
+                            <li>在您的手机上安装Google Authenticator或其他TOTP认证器应用</li>
+                            <li>使用应用扫描下方二维码，或手动输入密钥</li>
+                            <li>保存好您的恢复密钥，以防手机丢失时使用</li>
+                        </ol>
+                    </div>
+                    
+                    <div class="text-center mb-4">
+                        <img src="{{ qr_code }}" alt="TOTP QR Code" class="img-fluid">
+                    </div>
+                    
+                    <div class="alert alert-warning">
+                        <strong>您的TOTP密钥：</strong>
+                        <div class="input-group mb-3">
+                            <input type="text" class="form-control" value="{{ totp_secret }}" readonly>
+                            <button class="btn btn-outline-secondary" type="button" onclick="copyToClipboard('{{ totp_secret }}')">
+                                复制
+                            </button>
+                        </div>
+                        <small class="text-muted">请将此密钥保存在安全的地方，以备后用</small>
+                    </div>
+                    
+                    <form action="{{ url_for('verify_totp') }}" method="post" class="text-center">
+                        <button type="submit" class="btn btn-primary">
+                            我已保存密钥，继续验证
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function copyToClipboard(text) {
+    navigator.clipboard.writeText(text).then(function() {
+        alert('密钥已复制到剪贴板');
+    }).catch(function(err) {
+        console.error('无法复制文本: ', err);
+    });
+}
+</script>
+{% endblock %} 

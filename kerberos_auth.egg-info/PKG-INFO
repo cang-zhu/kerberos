@@ -1,0 +1,14 @@
+Metadata-Version: 2.4
+Name: kerberos-auth
+Version: 0.1
+Requires-Dist: flask==2.0.1
+Requires-Dist: pyotp==2.6.0
+Requires-Dist: requests==2.26.0
+Requires-Dist: cryptography==3.4.7
+Requires-Dist: python-dotenv==0.19.0
+Requires-Dist: gunicorn==20.1.0
+Requires-Dist: flask-sqlalchemy==2.5.1
+Requires-Dist: werkzeug==2.0.1
+Requires-Dist: flask-migrate==3.1.0
+Requires-Dist: alembic==1.7.1
+Dynamic: requires-dist

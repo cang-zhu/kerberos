@@ -1,0 +1,280 @@
+{% extends "base.html" %}
+
+{% block title %}用户管理控制台{% endblock %}
+
+{% block additional_style %}
+<style>
+    .card {
+        margin-bottom: 20px;
+    }
+    .table th, .table td {
+        vertical-align: middle;
+    }
+    .user-actions {
+        white-space: nowrap;
+    }
+    .badge-role {
+        margin-right: 5px;
+    }
+    .search-bar {
+        margin-bottom: 20px;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-12">
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="mb-0">用户管理控制台</h5>
+                <a href="{{ url_for('dashboard') }}" class="btn btn-sm btn-outline-secondary">
+                    <i class="bi bi-arrow-left"></i> 返回仪表板
+                </a>
+            </div>
+            <div class="card-body">
+                <div class="alert alert-info">
+                    <i class="bi bi-info-circle-fill me-2"></i> 在此页面您可以管理系统中的所有用户账户。
+                </div>
+                
+                <!-- 搜索栏 -->
+                <div class="row search-bar">
+                    <div class="col-md-6">
+                        <form class="d-flex">
+                            <input class="form-control me-2" type="search" placeholder="搜索用户名" aria-label="Search">
+                            <button class="btn btn-outline-primary" type="submit">搜索</button>
+                        </form>
+                    </div>
+                    <div class="col-md-6 text-end">
+                        <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addUserModal">
+                            <i class="bi bi-person-plus"></i> 添加用户
+                        </button>
+                    </div>
+                </div>
+                
+                <!-- 用户列表 -->
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>用户名</th>
+                                <th>邮箱</th>
+                                <th>密码哈希</th>
+                                <th>TOTP密钥</th>
+                                <th>角色</th>
+                                <th>最后登录</th>
+                                <th>状态</th>
+                                <th>操作</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for user in users %}
+                            <tr>
+                                <td>{{ user.id }}</td>
+                                <td>{{ user.username }}</td>
+                                <td>{{ user.email or '未设置' }}</td>
+                                <td>
+                                    <div class="text-truncate" style="max-width: 130px; cursor: pointer;" 
+                                         title="点击查看完整内容"
+                                         onclick="showFullText('{{ user.password_hash }}', '密码哈希')">
+                                        {{ user.password_hash }}
+                                    </div>
+                                </td>
+                                <td>
+                                    <div class="text-truncate" style="max-width: 130px; cursor: pointer;" 
+                                         title="点击查看完整内容"
+                                         onclick="showFullText('{{ user.totp_secret or '未设置' }}', 'TOTP密钥')">
+                                        {{ user.totp_secret or '未设置' }}
+                                    </div>
+                                </td>
+                                <td>
+                                    {% if user.is_admin %}
+                                    <span class="badge bg-danger badge-role">管理员</span>
+                                    {% else %}
+                                    <span class="badge bg-secondary badge-role">普通用户</span>
+                                    {% endif %}
+                                </td>
+                                <td>{{ user.last_login.strftime('%Y-%m-%d %H:%M') if user.last_login else '从未登录' }}</td>
+                                <td>
+                                    {% if user.is_active %}
+                                    <span class="badge bg-success">活跃</span>
+                                    {% else %}
+                                    <span class="badge bg-danger">已禁用</span>
+                                    {% endif %}
+                                </td>
+                                <td class="user-actions">
+                                    <button class="btn btn-sm btn-outline-primary" onclick="editUser({{ user.id }})">
+                                        <i class="bi bi-pencil"></i>
+                                    </button>
+                                    <button class="btn btn-sm btn-outline-warning" onclick="resetTotp({{ user.id }})">
+                                        <i class="bi bi-key"></i>
+                                    </button>
+                                    {% if user.is_active %}
+                                    <button class="btn btn-sm btn-outline-danger" onclick="disableUser({{ user.id }})">
+                                        <i class="bi bi-person-x"></i>
+                                    </button>
+                                    {% else %}
+                                    <button class="btn btn-sm btn-outline-success" onclick="enableUser({{ user.id }})">
+                                        <i class="bi bi-person-check"></i>
+                                    </button>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                
+                <!-- 分页 -->
+                <nav aria-label="Page navigation">
+                    <ul class="pagination justify-content-center">
+                        <li class="page-item disabled">
+                            <a class="page-link" href="#" tabindex="-1" aria-disabled="true">上一页</a>
+                        </li>
+                        <li class="page-item active"><a class="page-link" href="#">1</a></li>
+                        <li class="page-item"><a class="page-link" href="#">2</a></li>
+                        <li class="page-item"><a class="page-link" href="#">3</a></li>
+                        <li class="page-item">
+                            <a class="page-link" href="#">下一页</a>
+                        </li>
+                    </ul>
+                </nav>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 添加用户模态框 -->
+<div class="modal fade" id="addUserModal" tabindex="-1" aria-labelledby="addUserModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="addUserModalLabel">添加新用户</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="addUserForm">
+                    <div class="mb-3">
+                        <label for="username" class="form-label">用户名</label>
+                        <input type="text" class="form-control" id="username" name="username" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="email" class="form-label">邮箱</label>
+                        <input type="email" class="form-control" id="email" name="email">
+                    </div>
+                    <div class="mb-3">
+                        <label for="password" class="form-label">密码</label>
+                        <input type="password" class="form-control" id="password" name="password" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="confirmPassword" class="form-label">确认密码</label>
+                        <input type="password" class="form-control" id="confirmPassword" name="confirmPassword" required>
+                    </div>
+                    <div class="mb-3 form-check">
+                        <input type="checkbox" class="form-check-input" id="isAdmin" name="isAdmin">
+                        <label class="form-check-label" for="isAdmin">设为管理员</label>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                <button type="button" class="btn btn-primary" onclick="submitAddUserForm()">添加</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 全文查看模态框 -->
+<div class="modal fade" id="fullTextModal" tabindex="-1" aria-labelledby="fullTextModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="fullTextModalLabel">完整内容</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <label id="fullTextLabel" class="form-label">内容</label>
+                    <textarea class="form-control" id="fullTextContent" rows="3" readonly></textarea>
+                </div>
+                <div class="d-grid">
+                    <button class="btn btn-sm btn-outline-primary" onclick="copyToClipboard()">
+                        <i class="bi bi-clipboard"></i> 复制到剪贴板
+                    </button>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">关闭</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="https://cdn.jsdelivr.net/npm/qrcode.js@1.0.0/qrcode.min.js"></script>
+<script>
+    function editUser(userId) {
+        alert('编辑用户 ID: ' + userId);
+        // 这里可以实现编辑用户的功能，例如打开编辑模态框
+    }
+    
+    function resetTotp(userId) {
+        if (confirm('确定要重置该用户的TOTP密钥吗？')) {
+            alert('重置TOTP密钥，用户 ID: ' + userId);
+            // 这里可以实现重置用户TOTP密钥的功能
+        }
+    }
+    
+    function disableUser(userId) {
+        if (confirm('确定要禁用该用户吗？')) {
+            alert('禁用用户 ID: ' + userId);
+            // 这里可以实现禁用用户的功能
+        }
+    }
+    
+    function enableUser(userId) {
+        if (confirm('确定要启用该用户吗？')) {
+            alert('启用用户 ID: ' + userId);
+            // 这里可以实现启用用户的功能
+        }
+    }
+    
+    function submitAddUserForm() {
+        // 获取表单数据
+        const username = document.getElementById('username').value;
+        const password = document.getElementById('password').value;
+        const confirmPassword = document.getElementById('confirmPassword').value;
+        
+        // 简单验证
+        if (password !== confirmPassword) {
+            alert('两次输入的密码不一致');
+            return;
+        }
+        
+        // 这里可以实现添加用户的功能，例如发送AJAX请求
+        alert('添加用户: ' + username);
+        
+        // 关闭模态框
+        const modal = bootstrap.Modal.getInstance(document.getElementById('addUserModal'));
+        modal.hide();
+    }
+    
+    function showFullText(text, type) {
+        document.getElementById('fullTextLabel').textContent = type;
+        document.getElementById('fullTextContent').value = text;
+        
+        // 显示模态框
+        const modal = new bootstrap.Modal(document.getElementById('fullTextModal'));
+        modal.show();
+    }
+    
+    function copyToClipboard() {
+        const textArea = document.getElementById('fullTextContent');
+        textArea.select();
+        document.execCommand('copy');
+        alert('已复制到剪贴板');
+    }
+</script>
+{% endblock %} 

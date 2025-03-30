@@ -1,0 +1,124 @@
+# Kerberos认证系统
+
+这是一个基于Hadoop的Kerberos认证系统，实现了基于TOTP的双因素认证机制。
+
+## 环境要求
+
+- macOS（已在macOS 24.1.0上测试）
+- Python 3.8+
+- OpenJDK 11
+- Hadoop 3.4.1
+- Kerberos (krb5 1.21.3)
+
+## 安装步骤
+
+1. 克隆项目并创建虚拟环境：
+```bash
+git clone <repository-url>
+cd kerberos
+python3 -m venv venv
+source venv/bin/activate
+```
+
+2. 安装Python依赖：
+```bash
+pip install -r requirements.txt
+```
+
+3. 配置环境变量：
+```bash
+# 复制环境变量模板
+cp .env.example .env
+
+# 编辑.env文件，设置必要的环境变量
+# 主要配置项：
+# - JAVA_HOME：Java安装路径
+# - HADOOP_HOME：Hadoop安装路径
+# - HIVE_HOME：Hive安装路径
+# - KRB5_CONFIG：Kerberos配置文件路径
+# - KRB5_KDC_PROFILE：KDC配置文件路径
+# - KERBEROS_PATH：Kerberos可执行文件路径
+```
+
+4. 创建必要的目录：
+```bash
+# 创建Hadoop数据目录
+mkdir -p $HADOOP_HOME/var/hadoop/dfs/{name,data}
+mkdir -p $HADOOP_HOME/var/hadoop/kerberos/keytabs
+mkdir -p $HADOOP_HOME/var/hadoop/tmp
+
+# 创建Kerberos日志目录
+mkdir -p /var/log/krb5kdc
+```
+
+5. 初始化数据库：
+```bash
+flask db upgrade
+```
+
+## 配置说明
+
+1. Hadoop配置：
+   - `config/hadoop/core-site.xml`：Hadoop核心配置
+   - `config/hadoop/hdfs-site.xml`：HDFS配置
+
+2. Kerberos配置：
+   - `config/krb5.conf`：Kerberos主配置
+   - `config/kdc.conf`：KDC服务器配置
+
+3. 数据库配置：
+   - 使用`scripts/update_db.py`管理用户和TOTP密钥
+
+## 启动服务
+
+1. 启动Kerberos KDC服务：
+```bash
+krb5kdc -n
+```
+
+2. 启动HDFS服务：
+```bash
+start-dfs.sh
+```
+
+3. 启动Web应用：
+```bash
+FLASK_APP=app.py flask run --host=0.0.0.0 --port=5002
+```
+
+## 使用说明
+
+1. 访问Web界面：`http://localhost:5002`
+2. 使用用户名和密码登录
+3. 输入TOTP动态密码（使用Google Authenticator等工具）
+4. 登录成功后可以进行HDFS操作
+
+## 安全特性
+
+- 双因素认证（用户名密码 + TOTP动态密码）
+- Kerberos票据认证
+- 基于时间的一次性密码（TOTP）
+- 安全的密钥管理
+
+## 目录结构
+
+```
+.
+├── app.py                 # Flask应用主文件
+├── config/               # 配置文件目录
+│   ├── hadoop/          # Hadoop配置
+│   └── krb5.conf        # Kerberos配置
+├── scripts/             # 脚本文件
+│   └── update_db.py     # 数据库管理脚本
+├── static/              # 静态文件
+├── templates/           # HTML模板
+└── venv/               # Python虚拟环境
+```
+
+## 注意事项
+
+1. 确保所有必要的目录权限正确
+2. 首次运行需要初始化数据库和用户
+3. 请妥善保管TOTP密钥
+4. 定期更新TOTP密钥以提高安全性
+5. 生产环境部署时请使用HTTPS 

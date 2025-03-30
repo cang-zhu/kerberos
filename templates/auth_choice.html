@@ -1,0 +1,459 @@
+{% extends 'base.html' %}
+
+{% block title %}选择认证方式 - Hadoop管理系统{% endblock %}
+
+{% block custom_css %}
+<style>
+  .auth-container {
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 3rem 2rem;
+  }
+  .auth-heading {
+    text-align: center;
+    margin-bottom: 3.5rem;
+    position: relative;
+  }
+  .auth-heading:after {
+    content: "";
+    position: absolute;
+    bottom: -10px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 80px;
+    height: 4px;
+    background: linear-gradient(90deg, #0d6efd, #0dcaf0);
+    border-radius: 2px;
+  }
+  .auth-heading h1 {
+    font-size: 2.4rem;
+    font-weight: 700;
+    color: #1e2a3a;
+    margin-bottom: 0.5rem;
+  }
+  .auth-heading p {
+    font-size: 1.15rem;
+    color: #6c757d;
+  }
+  .auth-card {
+    border-radius: 16px;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.08);
+    transition: all 0.4s cubic-bezier(0.165, 0.84, 0.44, 1);
+    height: 100%;
+    border: none;
+    overflow: hidden;
+    position: relative;
+    margin: 0.5rem;
+  }
+  .auth-card:hover {
+    transform: translateY(-8px);
+    box-shadow: 0 18px 40px rgba(0,0,0,0.15);
+  }
+  .auth-card-personal {
+    border: 1px solid rgba(255,193,7,0.2);
+  }
+  .auth-card-kerberos {
+    border: 1px solid rgba(13,110,253,0.2);
+  }
+  .auth-card-header {
+    padding: 2.5rem 2rem 1.5rem;
+    text-align: center;
+    position: relative;
+    overflow: hidden;
+    border-bottom: none;
+  }
+  .auth-card-personal .auth-card-header {
+    background: linear-gradient(135deg, #fff8e5 0%, #fff 100%);
+  }
+  .auth-card-kerberos .auth-card-header {
+    background: linear-gradient(135deg, #e9f4ff 0%, #fff 100%);
+  }
+  .auth-icon-wrapper {
+    width: 90px;
+    height: 90px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0 auto 1.5rem;
+    position: relative;
+    z-index: 2;
+    transition: all 0.3s ease;
+  }
+  .auth-card-personal .auth-icon-wrapper {
+    background: linear-gradient(135deg, #ffda75 0%, #ffc107 100%);
+    box-shadow: 0 10px 20px rgba(255,193,7,0.3);
+  }
+  .auth-card-kerberos .auth-icon-wrapper {
+    background: linear-gradient(135deg, #63a4ff 0%, #0d6efd 100%);
+    box-shadow: 0 10px 20px rgba(13,110,253,0.3);
+  }
+  .auth-card:hover .auth-icon-wrapper {
+    transform: scale(1.1);
+  }
+  .auth-card-icon {
+    font-size: 2.8rem;
+    color: white;
+  }
+  .auth-card-title {
+    font-size: 1.6rem;
+    font-weight: 700;
+    margin-bottom: 0.8rem;
+    color: #1e2a3a;
+    position: relative;
+    display: inline-block;
+  }
+  .auth-card-text {
+    color: #6c757d;
+    font-size: 1.05rem;
+    margin-bottom: 0;
+    line-height: 1.5;
+  }
+  .auth-badge-wrapper {
+    position: absolute;
+    top: 20px;
+    right: 20px;
+    z-index: 2;
+  }
+  .auth-badge {
+    font-size: 0.75rem;
+    padding: 0.5rem 1rem;
+    display: inline-block;
+    font-weight: 600;
+    letter-spacing: 0.5px;
+    border-radius: 30px;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+    opacity: 0.9;
+  }
+  .auth-card-body {
+    padding: 1.8rem 2rem 2rem;
+    background-color: #fff;
+  }
+  .auth-features {
+    list-style-type: none;
+    padding: 1rem 1.2rem;
+    margin-bottom: 2rem;
+    background-color: #f9f9fa;
+    border-radius: 12px;
+  }
+  .auth-features li {
+    padding: 0.9rem 0;
+    display: flex;
+    align-items: center;
+    border-bottom: 1px dashed rgba(0,0,0,0.05);
+    font-size: 1.05rem;
+  }
+  .auth-features li:last-child {
+    border-bottom: none;
+  }
+  .auth-features-icon {
+    margin-right: 1rem;
+    font-size: 1.1rem;
+    width: 24px;
+    text-align: center;
+    flex-shrink: 0;
+  }
+  .auth-features .active {
+    color: #198754;
+  }
+  .auth-features .inactive {
+    color: #dc3545;
+  }
+  .auth-btn {
+    width: 100%;
+    padding: 1.1rem 1rem;
+    font-weight: 600;
+    border-radius: 8px;
+    font-size: 1.1rem;
+    letter-spacing: 0.5px;
+    transition: all 0.3s ease;
+    margin-top: 1.5rem;
+    text-transform: uppercase;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    position: relative;
+    overflow: hidden;
+  }
+  .auth-btn:after {
+    content: "";
+    position: absolute;
+    width: 0%;
+    height: 100%;
+    top: 0;
+    left: 0;
+    background-color: rgba(255,255,255,0.1);
+    transition: all 0.3s ease;
+  }
+  .auth-btn:hover:after {
+    width: 100%;
+  }
+  .auth-btn-primary {
+    background: linear-gradient(90deg, #0d6efd, #0b5ed7);
+    border: none;
+    color: white;
+  }
+  .auth-btn-primary:hover {
+    box-shadow: 0 6px 15px rgba(13,110,253,0.3);
+    transform: translateY(-3px);
+  }
+  .auth-btn-outline {
+    background: transparent;
+    color: #0d6efd;
+    border: 2px solid #0d6efd;
+  }
+  .auth-btn-outline:hover {
+    color: #fff;
+    background: linear-gradient(90deg, #0d6efd, #0b5ed7);
+    border-color: transparent;
+    box-shadow: 0 6px 15px rgba(13,110,253,0.3);
+    transform: translateY(-3px);
+  }
+  .auth-divider {
+    display: flex;
+    align-items: center;
+    margin: 4rem 0 2.5rem 0;
+  }
+  .auth-divider-line {
+    flex-grow: 1;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, rgba(0,0,0,0.1), transparent);
+  }
+  .auth-divider-text {
+    padding: 0 1.5rem;
+    color: #6c757d;
+    font-weight: 500;
+    font-size: 1.1rem;
+  }
+  .feature-section {
+    margin-bottom: 2rem;
+    padding-bottom: 1.5rem;
+    border-bottom: 1px solid rgba(0,0,0,0.05);
+  }
+  .auth-section-title {
+    font-size: 1.15rem;
+    font-weight: 600;
+    color: #1e2a3a;
+    margin-bottom: 1.2rem;
+    display: flex;
+    align-items: center;
+  }
+  .auth-section-title i {
+    margin-right: 10px;
+    color: #0d6efd;
+    font-size: 1.2rem;
+  }
+  .highlighted-feature {
+    background-color: rgba(13, 110, 253, 0.05);
+    border-left: 3px solid #0d6efd;
+    padding: 1.2rem 1.4rem;
+    margin-top: 0.5rem;
+    border-radius: 0 8px 8px 0;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.02);
+  }
+  .highlighted-feature p {
+    font-size: 1.05rem;
+  }
+  .info-card {
+    border-radius: 16px;
+    box-shadow: 0 8px 25px rgba(0,0,0,0.05);
+    border: none;
+    background: linear-gradient(to right, #f8f9fa, #fff);
+    margin-top: 2rem;
+  }
+  .info-title {
+    font-size: 1.3rem;
+    display: flex;
+    align-items: center;
+    color: #1e2a3a;
+    font-weight: 600;
+    margin-bottom: 1.2rem;
+  }
+  .info-title i {
+    margin-right: 12px;
+    color: #0d6efd;
+    font-size: 1.4rem;
+  }
+  .info-content {
+    color: #495057;
+    line-height: 1.7;
+    font-size: 1.05rem;
+  }
+  .info-content strong {
+    color: #212529;
+  }
+  @media (max-width: 767.98px) {
+    .auth-container {
+      padding: 2rem 1rem;
+    }
+    .auth-heading {
+      margin-bottom: 2rem;
+    }
+    .auth-heading h1 {
+      font-size: 2rem;
+    }
+    .auth-card {
+      margin: 0.25rem 0;
+    }
+  }
+  .auth-quick-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0.8rem 1.2rem;
+    background-color: #fff;
+    border-radius: 8px;
+    border: 1px solid #e9ecef;
+    font-weight: 500;
+    font-size: 1.05rem;
+    color: #495057;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+    transition: all 0.3s ease;
+    text-decoration: none;
+    width: 100%;
+  }
+  .auth-quick-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    color: #0d6efd;
+    border-color: #0d6efd;
+  }
+  .auth-quick-btn i {
+    margin-right: 10px;
+    font-size: 1.2rem;
+  }
+  .auth-quick-btn-personal {
+    color: #664d03;
+    border-color: #ffe69c;
+    background-color: #fff8e5;
+  }
+  .auth-quick-btn-personal:hover {
+    color: #664d03;
+    border-color: #ffc107;
+    background-color: #fff4d4;
+  }
+  .auth-quick-btn-kerberos {
+    color: #0c4128;
+    border-color: #c3e6cb;
+    background-color: #e8f9f0;
+  }
+  .auth-quick-btn-kerberos:hover {
+    color: #0c4128;
+    border-color: #198754;
+    background-color: #d1f2e0;
+  }
+</style>
+<link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css" rel="stylesheet">
+{% endblock %}
+
+{% block content %}
+<div class="container mt-5 auth-container">
+  <div class="auth-heading">
+    <h1>选择认证方式</h1>
+    <p class="text-muted">请选择您希望使用的方式登录 Hadoop 管理系统</p>
+  </div>
+  
+  <div class="row g-4 mb-5">
+    <!-- 用户名密码认证 -->
+    <div class="col-md-6">
+      <div class="card auth-card auth-card-personal h-100">
+        <div class="auth-badge-wrapper">
+          <span class="auth-badge bg-warning text-dark" style="opacity: 0.85;">开发模式</span>
+        </div>
+        <div class="auth-card-header">
+          <div class="auth-icon-wrapper">
+            <i class="bi bi-person-badge-fill auth-card-icon"></i>
+          </div>
+          <h2 class="auth-card-title">用户名密码认证</h2>
+          <p class="auth-card-text">传统的双因素验证方式</p>
+        </div>
+        <div class="auth-card-body">
+          <div class="feature-section" style="min-height: 210px;">
+            <h3 class="auth-section-title"><i class="bi bi-list-check"></i>功能特性</h3>
+            <ul class="auth-features">
+              <li><i class="bi bi-check-circle-fill auth-features-icon" style="color: #198754;"></i> 传统用户名/密码登录</li>
+              <li><i class="bi bi-check-circle-fill auth-features-icon" style="color: #198754;"></i> TOTP 双因素验证保护</li>
+              <li><i class="bi bi-check-circle-fill auth-features-icon" style="color: #198754;"></i> 用户角色与权限管理</li>
+              <li><i class="bi bi-x-circle-fill auth-features-icon" style="color: #dc3545;"></i> <span class="text-muted">不支持票据认证</span></li>
+              <li><i class="bi bi-x-circle-fill auth-features-icon" style="color: #dc3545;"></i> <span class="text-muted">不支持集成Hadoop服务</span></li>
+            </ul>
+          </div>
+          
+          <div class="feature-section" style="min-height: 120px;">
+            <h3 class="auth-section-title"><i class="bi bi-info-circle"></i>使用说明</h3>
+            <div class="highlighted-feature" style="background-color: rgba(255, 193, 7, 0.08); border-left: 3px solid #ffc107;">
+              <p class="mb-0" style="font-weight: 500;"><strong>仅在开发模式下可用</strong>，用于测试和调试目的</p>
+            </div>
+          </div>
+          
+          <a href="{{ url_for('login') }}" class="d-flex align-items-center justify-content-start text-dark" style="text-decoration: none; font-weight: 500; border-top: 1px solid rgba(0,0,0,0.08); padding-top: 1.2rem; margin-top: 1rem;">
+            <i class="bi bi-person-fill me-2" style="font-size: 1.2rem;"></i> 使用用户名密码登录
+          </a>
+        </div>
+      </div>
+    </div>
+    
+    <!-- Kerberos认证 -->
+    <div class="col-md-6">
+      <div class="card auth-card auth-card-kerberos h-100">
+        <div class="auth-badge-wrapper">
+          <span class="auth-badge bg-success text-white" style="opacity: 0.85;">推荐</span>
+        </div>
+        <div class="auth-card-header">
+          <div class="auth-icon-wrapper">
+            <i class="bi bi-shield-lock-fill auth-card-icon"></i>
+          </div>
+          <h2 class="auth-card-title">Kerberos认证</h2>
+          <p class="auth-card-text">基于票据的安全认证机制</p>
+        </div>
+        <div class="auth-card-body">
+          <div class="feature-section" style="min-height: 210px;">
+            <h3 class="auth-section-title"><i class="bi bi-list-check"></i>功能特性</h3>
+            <ul class="auth-features">
+              <li><i class="bi bi-check-circle-fill auth-features-icon" style="color: #198754;"></i> 基于票据的安全认证</li>
+              <li><i class="bi bi-check-circle-fill auth-features-icon" style="color: #198754;"></i> TOTP多因素验证保护</li>
+              <li><i class="bi bi-check-circle-fill auth-features-icon" style="color: #198754;"></i> 支持服务票据管理</li>
+              <li><i class="bi bi-check-circle-fill auth-features-icon" style="color: #198754;"></i> 集成Hadoop服务访问</li>
+              <li><i class="bi bi-check-circle-fill auth-features-icon" style="color: #198754;"></i> 跨服务单点登录 (SSO)</li>
+            </ul>
+          </div>
+          
+          <div class="feature-section" style="min-height: 120px;">
+            <h3 class="auth-section-title"><i class="bi bi-shield-check"></i>使用说明</h3>
+            <div class="highlighted-feature" style="background-color: rgba(13, 110, 253, 0.08); border-left: 3px solid #0d6efd;">
+              <p class="mb-0" style="font-weight: 500;"><strong>生产环境推荐</strong>，提供更高的安全性</p>
+            </div>
+          </div>
+          
+          <a href="{{ url_for('kerberos_login') }}" class="d-flex align-items-center justify-content-start text-dark" style="text-decoration: none; font-weight: 500; border-top: 1px solid rgba(0,0,0,0.08); padding-top: 1.2rem; margin-top: 1rem;">
+            <i class="bi bi-key-fill me-2" style="font-size: 1.2rem;"></i> 使用Kerberos认证
+          </a>
+        </div>
+      </div>
+    </div>
+  </div>
+  
+  <div class="auth-divider">
+    <div class="auth-divider-line"></div>
+    <div class="auth-divider-text">认证说明</div>
+    <div class="auth-divider-line"></div>
+  </div>
+  
+  <div class="card" style="border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); border: none;">
+    <div class="card-body p-4">
+      <h5 class="mb-3" style="display: flex; align-items: center; font-size: 1.2rem; font-weight: 600; color: #212529;">
+        <i class="bi bi-info-circle me-2" style="color: #0d6efd;"></i> 关于Hadoop Kerberos认证
+      </h5>
+      
+      <div style="color: #495057; line-height: 1.6; font-size: 1rem;">
+        <p class="mb-3">Kerberos是一种网络认证协议，使用票据（Ticket）进行身份验证，而不是在网络上传输密码。这种方式更加安全，特别是在分布式环境中。</p>
+        
+        <p class="mb-3">在Hadoop生态系统中，Kerberos为各个组件（如HDFS、YARN、Hive等）提供了统一的认证机制，用户只需获取一次票据（TGT）即可访问所有已授权的服务。</p>
+        
+        <div class="alert alert-primary py-3 px-4 mb-0" style="background-color: #e7f1ff; border-color: #b8d4fb; color: #084298; border-radius: 6px;">
+          <i class="bi bi-exclamation-triangle me-2"></i>
+          <strong>注意</strong>：在生产环境中，只有Kerberos认证模式可用。用户名密码认证仅在开发环境中启用，用于测试和调试。
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

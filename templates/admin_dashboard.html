@@ -1,0 +1,309 @@
+{% extends "base.html" %}
+
+{% block title %}管理员仪表板{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="row">
+        <!-- 用户管理 -->
+        <div class="col-md-12 mb-4">
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">用户管理</h5>
+                    <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addUserModal">
+                        <i class="bi bi-person-plus"></i> 添加用户
+                    </button>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead>
+                                <tr>
+                                    <th>用户名</th>
+                                    <th>角色</th>
+                                    <th>状态</th>
+                                    <th>最后登录</th>
+                                    <th>操作</th>
+                                </tr>
+                            </thead>
+                            <tbody id="userTableBody">
+                                <!-- 用户列表将通过JavaScript动态加载 -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 系统日志 -->
+        <div class="col-md-12">
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">系统日志</h5>
+                    <div>
+                        <button class="btn btn-outline-secondary" onclick="refreshLogs()">
+                            <i class="bi bi-arrow-clockwise"></i> 刷新
+                        </button>
+                        <button class="btn btn-outline-danger" onclick="clearLogs()">
+                            <i class="bi bi-trash"></i> 清空
+                        </button>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <pre id="systemLogs" class="bg-light p-3" style="max-height: 300px; overflow-y: auto;">
+                        <!-- 系统日志将通过JavaScript动态加载 -->
+                    </pre>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 添加用户模态框 -->
+<div class="modal fade" id="addUserModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">添加新用户</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="addUserForm">
+                    <div class="mb-3">
+                        <label class="form-label">用户名</label>
+                        <input type="text" class="form-control" name="username" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">密码</label>
+                        <input type="password" class="form-control" name="password" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">角色</label>
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" name="roles" value="hdfs_user" id="roleHdfs">
+                            <label class="form-check-label" for="roleHdfs">HDFS 用户</label>
+                        </div>
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" name="roles" value="yarn_user" id="roleYarn">
+                            <label class="form-check-label" for="roleYarn">YARN 用户</label>
+                        </div>
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" name="roles" value="hive_user" id="roleHive">
+                            <label class="form-check-label" for="roleHive">Hive 用户</label>
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                <button type="button" class="btn btn-primary" onclick="addUser()">添加</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function loadUsers() {
+    console.log('开始加载用户列表...');
+    fetch('/api/admin/users', {
+        credentials: 'same-origin'
+    })
+        .then(response => {
+            console.log('收到响应:', response.status);
+            if (!response.ok) {
+                if (response.status === 401) {
+                    throw new Error('未登录或会话已过期');
+                } else if (response.status === 403) {
+                    throw new Error('没有管理员权限');
+                } else {
+                    throw new Error('服务器响应错误: ' + response.status);
+                }
+            }
+            return response.json();
+        })
+        .then(data => {
+            console.log('解析的数据:', data);
+            if (data.success) {
+                const tbody = document.getElementById('userTableBody');
+                if (!tbody) {
+                    console.error('找不到userTableBody元素');
+                    return;
+                }
+                tbody.innerHTML = '';
+                if (Array.isArray(data.users)) {
+                    data.users.forEach(user => {
+                        const tr = document.createElement('tr');
+                        tr.innerHTML = `
+                            <td>${user.username}</td>
+                            <td>${formatRoles(user.roles || [])}</td>
+                            <td>
+                                <span class="badge ${user.is_active ? 'bg-success' : 'bg-danger'}">
+                                    ${user.is_active ? '活跃' : '禁用'}
+                                </span>
+                            </td>
+                            <td>${user.last_login || '从未登录'}</td>
+                            <td>
+                                <button class="btn btn-sm btn-warning" onclick="resetPassword('${user.username}')">
+                                    <i class="bi bi-key"></i>
+                                </button>
+                                <button class="btn btn-sm btn-danger" onclick="deleteUser('${user.username}')">
+                                    <i class="bi bi-trash"></i>
+                                </button>
+                            </td>
+                        `;
+                        tbody.appendChild(tr);
+                    });
+                } else {
+                    console.error('users不是数组:', data.users);
+                }
+            } else {
+                console.error('加载用户列表失败:', data.error);
+                alert('加载用户列表失败: ' + (data.error || '未知错误'));
+            }
+        })
+        .catch(error => {
+            console.error('加载用户列表时出错:', error);
+            alert(error.message || '加载用户列表失败，请检查网络连接或刷新页面重试');
+        });
+}
+
+function formatRoles(roles) {
+    const roleMap = {
+        'admin': '管理员',
+        'hdfs_user': 'HDFS用户',
+        'yarn_user': 'YARN用户',
+        'hive_user': 'Hive用户'
+    };
+    return roles.map(role => roleMap[role] || role).join(', ');
+}
+
+function addUser() {
+    const form = document.getElementById('addUserForm');
+    const formData = new FormData(form);
+    const roles = Array.from(formData.getAll('roles'));
+    
+    const data = {
+        username: formData.get('username'),
+        password: formData.get('password'),
+        roles: roles
+    };
+
+    fetch('/api/admin/users', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        credentials: 'same-origin',
+        body: JSON.stringify(data)
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            $('#addUserModal').modal('hide');
+            form.reset();
+            loadUsers();
+            alert('用户添加成功');
+        } else {
+            alert('添加用户失败: ' + data.error);
+        }
+    })
+    .catch(error => {
+        console.error('添加用户失败:', error);
+        alert('添加用户失败，请检查网络连接或刷新页面重试');
+    });
+}
+
+function resetPassword(username) {
+    if (confirm(`确定要重置用户 ${username} 的密码吗？`)) {
+        fetch(`/api/admin/users/${username}/reset-password`, {
+            method: 'POST',
+            credentials: 'same-origin'
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                alert(`密码重置成功。新密码: ${data.new_password}`);
+            } else {
+                alert('密码重置失败: ' + data.error);
+            }
+        })
+        .catch(error => {
+            console.error('密码重置失败:', error);
+            alert('密码重置失败，请检查网络连接或刷新页面重试');
+        });
+    }
+}
+
+function deleteUser(username) {
+    if (confirm(`确定要删除用户 ${username} 吗？`)) {
+        fetch(`/api/admin/users/${username}`, {
+            method: 'DELETE',
+            credentials: 'same-origin'
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                loadUsers();
+                alert('用户删除成功');
+            } else {
+                alert('删除用户失败: ' + data.error);
+            }
+        })
+        .catch(error => {
+            console.error('删除用户失败:', error);
+            alert('删除用户失败，请检查网络连接或刷新页面重试');
+        });
+    }
+}
+
+function refreshLogs() {
+    fetch('/api/admin/logs', {
+        credentials: 'same-origin'
+    })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                document.getElementById('systemLogs').textContent = data.logs.join('\n');
+            } else {
+                console.error('加载系统日志失败:', data.error);
+            }
+        })
+        .catch(error => {
+            console.error('加载系统日志失败:', error);
+            alert('加载系统日志失败，请检查网络连接或刷新页面重试');
+        });
+}
+
+function clearLogs() {
+    if (confirm('确定要清空系统日志吗？')) {
+        fetch('/api/admin/logs/clear', {
+            method: 'POST',
+            credentials: 'same-origin'
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                refreshLogs();
+                alert('系统日志已清空');
+            } else {
+                alert('清空系统日志失败: ' + data.error);
+            }
+        })
+        .catch(error => {
+            console.error('清空系统日志失败:', error);
+            alert('清空系统日志失败，请检查网络连接或刷新页面重试');
+        });
+    }
+}
+
+// 页面加载完成后执行
+document.addEventListener('DOMContentLoaded', function() {
+    loadUsers();  // 加载用户列表
+    refreshLogs();  // 加载系统日志
+    // 每30秒刷新一次日志
+    setInterval(refreshLogs, 30000);
+});
+</script>
+{% endblock %} 

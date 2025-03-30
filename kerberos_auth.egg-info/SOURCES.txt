@@ -1,0 +1,7 @@
+README.md
+setup.py
+kerberos_auth.egg-info/PKG-INFO
+kerberos_auth.egg-info/SOURCES.txt
+kerberos_auth.egg-info/dependency_links.txt
+kerberos_auth.egg-info/requires.txt
+kerberos_auth.egg-info/top_level.txt

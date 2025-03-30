@@ -1,0 +1,151 @@
+"""数据库更新脚本"""
+
+import os
+import sys
+import pyotp
+from datetime import datetime
+
+# 添加项目根目录到Python路径
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+# 设置环境变量
+os.environ['FLASK_ENV'] = 'development'
+os.environ['SECRET_KEY'] = 'dev_secret_key'
+os.environ['DATABASE_URL'] = f'sqlite:///{os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "instance", "test.db")}'
+os.environ['KERBEROS_SERVICE_NAME'] = 'HTTP'
+os.environ['KERBEROS_REALM'] = 'TEST.COM'
+os.environ['HADOOP_CONFIG_DIR'] = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'config')
+
+# 确保配置目录存在
+os.makedirs(os.environ['HADOOP_CONFIG_DIR'], exist_ok=True)
+
+from web.models import db, User, Role, Permission
+from web.app import create_app
+
+def update_database():
+    """更新数据库内容"""
+    # 创建应用实例
+    app = create_app()
+    
+    with app.app_context():
+        print("\n=== 开始更新数据库 ===")
+        
+        # 1. 更新权限
+        print("\n1. 添加新权限...")
+        new_permissions = [
+            ('manage_users', '管理用户权限'),
+            ('view_reports', '查看报告权限'),
+            ('use_hdfs', 'HDFS使用权限'),
+            ('use_yarn', 'YARN使用权限'),
+            ('use_hive', 'Hive使用权限'),
+            ('manage_hadoop', 'Hadoop管理权限')
+        ]
+        
+        for perm_name, perm_desc in new_permissions:
+            if not Permission.query.filter_by(name=perm_name).first():
+                perm = Permission(name=perm_name, description=perm_desc)
+                db.session.add(perm)
+        db.session.commit()
+        
+        # 2. 创建角色
+        print("\n2. 创建角色...")
+        roles = {
+            'admin': '管理员角色',
+            'user': '普通用户角色',
+            'hdfs_role': 'HDFS专用角色',
+            'yarn_role': 'YARN专用角色',
+            'hive_role': 'Hive专用角色'
+        }
+        
+        for role_name, role_desc in roles.items():
+            if not Role.query.filter_by(name=role_name).first():
+                role = Role(name=role_name, description=role_desc)
+                db.session.add(role)
+        db.session.commit()
+        
+        # 3. 为角色分配权限
+        print("\n3. 为角色分配权限...")
+        admin_role = Role.query.filter_by(name='admin').first()
+        user_role = Role.query.filter_by(name='user').first()
+        hdfs_role = Role.query.filter_by(name='hdfs_role').first()
+        yarn_role = Role.query.filter_by(name='yarn_role').first()
+        hive_role = Role.query.filter_by(name='hive_role').first()
+        
+        if all([admin_role, user_role, hdfs_role, yarn_role, hive_role]):
+            # 清除现有权限
+            for role in [admin_role, user_role, hdfs_role, yarn_role, hive_role]:
+                role.permissions = []
+            
+            # 为管理员角色添加所有权限
+            admin_role.permissions = Permission.query.all()
+            
+            # 为普通用户角色添加基本权限
+            basic_perms = Permission.query.filter(
+                Permission.name.in_(['use_hdfs', 'use_yarn', 'use_hive'])
+            ).all()
+            user_role.permissions = basic_perms
+            
+            # 为专用角色添加对应权限
+            hdfs_role.permissions = [Permission.query.filter_by(name='use_hdfs').first()]
+            yarn_role.permissions = [Permission.query.filter_by(name='use_yarn').first()]
+            hive_role.permissions = [Permission.query.filter_by(name='use_hive').first()]
+            
+            db.session.commit()
+        
+        # 4. 创建用户
+        print("\n4. 创建用户...")
+        users = {
+            'admin': ('admin_password', ['admin']),
+            'test_user': ('test_password', ['user']),
+            'hdfs_user': ('hdfs_password', ['hdfs_role']),
+            'yarn_user': ('yarn_password', ['yarn_role']),
+            'hive_user': ('hive_password', ['hive_role'])
+        }
+        
+        from werkzeug.security import generate_password_hash
+        for username, (password, role_names) in users.items():
+            user = User.query.filter_by(username=username).first()
+            if not user:
+                user = User(
+                    username=username,
+                    password_hash=generate_password_hash(password),
+                    is_active=True
+                )
+                db.session.add(user)
+                print(f"创建用户: {username}")
+            
+            # 分配角色
+            user.roles = [Role.query.filter_by(name=role_name).first() for role_name in role_names]
+        db.session.commit()
+        
+        # 5. 为用户生成TOTP密钥
+        print("\n5. 更新用户TOTP密钥...")
+        users = User.query.all()
+        for user in users:
+            if not user.totp_secret:
+                user.totp_secret = pyotp.random_base32()
+                print(f"为用户 {user.username} 生成TOTP密钥")
+        db.session.commit()
+        
+        # 6. 验证更新结果
+        print("\n=== 验证更新结果 ===")
+        
+        print("\n权限列表:")
+        for perm in Permission.query.all():
+            print(f"- {perm.name}: {perm.description}")
+        
+        print("\n角色及其权限:")
+        for role in Role.query.all():
+            print(f"\n角色: {role.name}")
+            print("权限:", ", ".join([p.name for p in role.permissions]))
+        
+        print("\n用户TOTP状态:")
+        for user in User.query.all():
+            print(f"- {user.username}: {'已设置' if user.totp_secret else '未设置'} TOTP密钥")
+            if user.totp_secret:
+                totp = pyotp.TOTP(user.totp_secret)
+                print(f"  当前TOTP代码: {totp.now()}")
+                print(f"  TOTP URI: {totp.provisioning_uri(user.username, issuer_name='Hadoop管理系统')}")
+
+if __name__ == '__main__':
+    update_database() 

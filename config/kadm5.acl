@@ -1,0 +1,7 @@
+# Format: principal permissions [target_principal]
+admin@HADOOP.COM *
+admin@DEV.LOCAL *
+admin@TEST.COM *
+*/admin@HADOOP.COM *
+*/admin@DEV.LOCAL *
+*/admin@TEST.COM *

@@ -1,0 +1,161 @@
+{% extends "base.html" %}
+
+{% block title %}仪表板{% endblock %}
+
+{% block additional_style %}
+<style>
+    .card {
+        margin-bottom: 20px;
+    }
+    .navbar {
+        margin-bottom: 20px;
+    }
+    .kerberos-info {
+        background-color: #f8f9fa;
+        border-radius: 8px;
+        padding: 15px;
+        margin-bottom: 20px;
+    }
+    .kerberos-info .label {
+        font-weight: 500;
+        color: #6c757d;
+    }
+    .kerberos-info .value {
+        font-weight: 600;
+        color: #212529;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-12">
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5 class="mb-0">系统状态</h5>
+            </div>
+            <div class="card-body">
+                <div class="alert alert-success">
+                    <i class="bi bi-check-circle-fill me-2"></i> 您已成功通过 TOTP 两步验证，现在可以访问系统功能。
+                </div>
+                
+                {% if is_kerberos %}
+                <!-- Kerberos 票据信息 -->
+                <div class="kerberos-info mb-4">
+                    <h5 class="mb-3"><i class="bi bi-key-fill me-2 text-primary"></i>Kerberos 票据信息</h5>
+                    <div class="row">
+                        <div class="col-md-6 mb-2">
+                            <span class="label">主体：</span>
+                            <span class="value">{{ principal }}</span>
+                        </div>
+                        <div class="col-md-6 mb-2">
+                            <span class="label">领域：</span>
+                            <span class="value">{{ realm }}</span>
+                        </div>
+                        <div class="col-md-6 mb-2">
+                            <span class="label">签发时间：</span>
+                            <span class="value">{{ issue_time }}</span>
+                        </div>
+                        <div class="col-md-6 mb-2">
+                            <span class="label">过期时间：</span>
+                            <span class="value">{{ expiry_time }}</span>
+                        </div>
+                    </div>
+                </div>
+                {% endif %}
+                
+                <div class="row">
+                    {% if is_admin %}
+                    <div class="col-md-4">
+                        <div class="card mb-3">
+                            <div class="card-body text-center">
+                                <i class="bi bi-hdd-stack fs-1 text-primary mb-3"></i>
+                                <h5>服务管理</h5>
+                                <p class="text-muted">管理 Hadoop 和 Hive 服务</p>
+                                <a href="{{ url_for('service_management') }}" class="btn btn-sm btn-outline-primary">进入管理</a>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="card mb-3">
+                            <div class="card-body text-center">
+                                <i class="bi bi-shield-lock fs-1 text-success mb-3"></i>
+                                <h5>安全设置</h5>
+                                <p class="text-muted">管理 Kerberos 认证</p>
+                                <a href="{{ url_for('security_settings') }}" class="btn btn-sm btn-outline-success">查看设置</a>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="card mb-3">
+                            <div class="card-body text-center">
+                                <i class="bi bi-gear fs-1 text-secondary mb-3"></i>
+                                <h5>系统配置</h5>
+                                <p class="text-muted">查看和修改系统配置</p>
+                                <a href="{{ url_for('system_settings') }}" class="btn btn-sm btn-outline-secondary">配置系统</a>
+                            </div>
+                        </div>
+                    </div>
+                    {% else %}
+                    <div class="col-md-6">
+                        <div class="card mb-3">
+                            <div class="card-body text-center">
+                                <i class="bi bi-person-badge fs-1 text-info mb-3"></i>
+                                <h5>个人信息</h5>
+                                <p class="text-muted">查看和修改个人账户信息</p>
+                                <a href="#" class="btn btn-sm btn-outline-info">查看信息</a>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="card mb-3">
+                            <div class="card-body text-center">
+                                <i class="bi bi-shield-lock fs-1 text-warning mb-3"></i>
+                                <h5>安全设置</h5>
+                                <p class="text-muted">管理您的TOTP密钥</p>
+                                <a href="#" class="btn btn-sm btn-outline-warning">修改设置</a>
+                            </div>
+                        </div>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="mb-0">最近活动</h5>
+                <button class="btn btn-sm btn-outline-primary">查看全部</button>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead>
+                            <tr>
+                                <th>时间</th>
+                                <th>操作</th>
+                                <th>状态</th>
+                                <th>详情</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td>{{ now.strftime('%Y-%m-%d %H:%M:%S') if now else 'N/A' }}</td>
+                                <td>{% if is_kerberos %}Kerberos认证{% else %}用户登录{% endif %}</td>
+                                <td><span class="badge bg-success">成功</span></td>
+                                <td>{% if is_kerberos %}主体 {{ principal }} 登录系统{% else %}用户 {{ username }} 登录系统{% endif %}</td>
+                            </tr>
+                            <tr>
+                                <td>{{ now.strftime('%Y-%m-%d %H:%M:%S') if now else 'N/A' }}</td>
+                                <td>TOTP 验证</td>
+                                <td><span class="badge bg-success">成功</span></td>
+                                <td>完成两步验证</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %} 

@@ -1,0 +1,117 @@
+{% extends "base.html" %}
+
+{% block title %}二次验证{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center align-items-center" style="min-height: calc(100vh - 180px);">
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-header text-center py-3">
+                <h4 class="mb-0">二次验证</h4>
+                {% if kerberos_mode %}
+                <small class="text-muted">Kerberos认证用户: {{ principal }}</small>
+                {% endif %}
+            </div>
+            <div class="card-body p-4">
+                {% with messages = get_flashed_messages(with_categories=true) %}
+                    {% if messages %}
+                        {% for category, message in messages %}
+                            <div class="alert alert-{{ category }}">{{ message }}</div>
+                        {% endfor %}
+                    {% endif %}
+                {% endwith %}
+                
+                <div class="text-center mb-4">
+                    <p class="mb-2">您的 TOTP 密钥：</p>
+                    <div class="alert alert-info">{{ secret }}</div>
+                    <p class="mb-2">当前验证码：</p>
+                    <div class="alert alert-success" id="current-code">{{ current_code }}</div>
+                    <div class="progress mb-2">
+                        <div class="progress-bar" role="progressbar" style="width: 100%"></div>
+                    </div>
+                    <small class="text-muted">剩余时间：<span id="remaining-time">30</span> 秒</small>
+                </div>
+                
+                <form method="POST" action="{{ url_for('verify_totp') }}" style="max-width: 280px; margin: 0 auto;">
+                    <div class="mb-3">
+                        <label for="code" class="form-label small">请输入验证码</label>
+                        <input type="text" class="form-control form-control-sm" id="code" name="code" required autofocus>
+                    </div>
+                    <div class="d-grid gap-2">
+                        <button type="submit" class="btn btn-primary btn-sm py-2">验证</button>
+                        {% if kerberos_mode %}
+                        <a href="{{ url_for('kerberos_login') }}" class="btn btn-outline-secondary btn-sm text-center mt-3">
+                            <i class="bi bi-arrow-left"></i> 返回Kerberos登录
+                        </a>
+                        {% else %}
+                        <a href="{{ url_for('auth_choice') }}" class="btn btn-outline-secondary btn-sm text-center mt-3">
+                            <i class="bi bi-arrow-left"></i> 返回认证选择
+                        </a>
+                        {% endif %}
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function updateProgressBar() {
+    const now = Math.floor(Date.now() / 1000);
+    const timeInPeriod = now % 30;
+    const remainingTime = 30 - timeInPeriod;
+    
+    document.querySelector('.progress-bar').style.width = (remainingTime / 30 * 100) + '%';
+    document.getElementById('remaining-time').textContent = remainingTime;
+    
+    if (remainingTime === 30) {
+        // 当剩余时间为 30 秒时，更新验证码
+        fetch('/generate_totp')
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('Network response was not ok');
+                }
+                return response.json();
+            })
+            .then(data => {
+                if (data.code) {
+                    document.getElementById('current-code').textContent = data.code;
+                }
+            })
+            .catch(error => {
+                console.error('Error fetching new TOTP code:', error);
+            });
+    }
+}
+
+// 每秒更新进度条
+setInterval(updateProgressBar, 1000);
+updateProgressBar();
+</script>
+{% endblock %}
+
+{% block additional_style %}
+<style>
+.form-control-sm {
+    height: calc(1.5em + 0.5rem + 2px);
+    padding: 0.25rem 0.5rem;
+    font-size: 0.875rem;
+    line-height: 1.5;
+    border-radius: 0.2rem;
+}
+.btn-sm {
+    padding: 0.25rem 0.5rem;
+    font-size: 0.875rem;
+    line-height: 1.5;
+    border-radius: 0.2rem;
+}
+.small {
+    font-size: 0.875rem;
+}
+.progress {
+    height: 4px;
+}
+</style>
+{% endblock %} 

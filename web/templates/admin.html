@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>用户管理</title>
+    <meta charset="UTF-8">
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .container {
+            background: #fff;
+            padding: 20px;
+            border-radius: 5px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+        th, td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #ddd;
+        }
+        th {
+            background-color: #f5f5f5;
+        }
+        .btn {
+            padding: 8px 16px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            margin-right: 5px;
+        }
+        .btn-primary {
+            background-color: #007bff;
+            color: white;
+        }
+        .btn-danger {
+            background-color: #dc3545;
+            color: white;
+        }
+        .btn-warning {
+            background-color: #ffc107;
+            color: black;
+        }
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0,0,0,0.5);
+        }
+        .modal-content {
+            background-color: #fff;
+            margin: 15% auto;
+            padding: 20px;
+            width: 50%;
+            border-radius: 5px;
+        }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        .form-group label {
+            display: block;
+            margin-bottom: 5px;
+        }
+        .form-group input {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>用户管理</h1>
+        <button class="btn btn-primary" onclick="showCreateUserModal()">创建新用户</button>
+        
+        <table id="userTable">
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>用户名</th>
+                    <th>状态</th>
+                    <th>角色</th>
+                    <th>最后登录</th>
+                    <th>操作</th>
+                </tr>
+            </thead>
+            <tbody></tbody>
+        </table>
+    </div>
+
+    <!-- 创建用户模态框 -->
+    <div id="createUserModal" class="modal">
+        <div class="modal-content">
+            <h2>创建新用户</h2>
+            <div class="form-group">
+                <label>用户名</label>
+                <input type="text" id="newUsername">
+            </div>
+            <div class="form-group">
+                <label>密码</label>
+                <input type="password" id="newPassword">
+            </div>
+            <div class="form-group">
+                <label>角色</label>
+                <select id="newRoles" multiple>
+                    <option value="user">普通用户</option>
+                    <option value="admin">管理员</option>
+                </select>
+            </div>
+            <button class="btn btn-primary" onclick="createUser()">创建</button>
+            <button class="btn btn-danger" onclick="hideCreateUserModal()">取消</button>
+        </div>
+    </div>
+
+    <!-- 编辑用户模态框 -->
+    <div id="editUserModal" class="modal">
+        <div class="modal-content">
+            <h2>编辑用户</h2>
+            <input type="hidden" id="editUserId">
+            <div class="form-group">
+                <label>新密码（留空则不修改）</label>
+                <input type="password" id="editPassword">
+            </div>
+            <div class="form-group">
+                <label>状态</label>
+                <select id="editStatus">
+                    <option value="true">启用</option>
+                    <option value="false">禁用</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>角色</label>
+                <select id="editRoles" multiple>
+                    <option value="user">普通用户</option>
+                    <option value="admin">管理员</option>
+                </select>
+            </div>
+            <button class="btn btn-primary" onclick="updateUser()">保存</button>
+            <button class="btn btn-danger" onclick="hideEditUserModal()">取消</button>
+        </div>
+    </div>
+
+    <script>
+        // 获取用户列表
+        function loadUsers() {
+            fetch('/admin/users')
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        const tbody = document.querySelector('#userTable tbody');
+                        tbody.innerHTML = '';
+                        data.users.forEach(user => {
+                            const tr = document.createElement('tr');
+                            tr.innerHTML = `
+                                <td>${user.id}</td>
+                                <td>${user.username}</td>
+                                <td>${user.is_active ? '启用' : '禁用'}</td>
+                                <td>${user.roles.join(', ')}</td>
+                                <td>${user.last_login || '-'}</td>
+                                <td>
+                                    <button class="btn btn-warning" onclick="showEditUserModal(${user.id})">编辑</button>
+                                    <button class="btn btn-danger" onclick="deleteUser(${user.id})">删除</button>
+                                </td>
+                            `;
+                            tbody.appendChild(tr);
+                        });
+                    }
+                });
+        }
+
+        // 创建用户
+        function createUser() {
+            const username = document.getElementById('newUsername').value;
+            const password = document.getElementById('newPassword').value;
+            const roles = Array.from(document.getElementById('newRoles').selectedOptions).map(option => option.value);
+
+            fetch('/admin/users', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ username, password, roles })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    hideCreateUserModal();
+                    loadUsers();
+                } else {
+                    alert(data.error);
+                }
+            });
+        }
+
+        // 更新用户
+        function updateUser() {
+            const userId = document.getElementById('editUserId').value;
+            const password = document.getElementById('editPassword').value;
+            const is_active = document.getElementById('editStatus').value === 'true';
+            const roles = Array.from(document.getElementById('editRoles').selectedOptions).map(option => option.value);
+
+            const data = { roles, is_active };
+            if (password) {
+                data.password = password;
+            }
+
+            fetch(`/admin/users/${userId}`, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(data)
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    hideEditUserModal();
+                    loadUsers();
+                } else {
+                    alert(data.error);
+                }
+            });
+        }
+
+        // 删除用户
+        function deleteUser(userId) {
+            if (confirm('确定要删除该用户吗？')) {
+                fetch(`/admin/users/${userId}`, {
+                    method: 'DELETE'
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        loadUsers();
+                    } else {
+                        alert(data.error);
+                    }
+                });
+            }
+        }
+
+        // 模态框控制
+        function showCreateUserModal() {
+            document.getElementById('createUserModal').style.display = 'block';
+        }
+
+        function hideCreateUserModal() {
+            document.getElementById('createUserModal').style.display = 'none';
+            document.getElementById('newUsername').value = '';
+            document.getElementById('newPassword').value = '';
+            document.getElementById('newRoles').selectedIndex = -1;
+        }
+
+        function showEditUserModal(userId) {
+            document.getElementById('editUserId').value = userId;
+            document.getElementById('editUserModal').style.display = 'block';
+        }
+
+        function hideEditUserModal() {
+            document.getElementById('editUserModal').style.display = 'none';
+            document.getElementById('editPassword').value = '';
+            document.getElementById('editStatus').selectedIndex = 0;
+            document.getElementById('editRoles').selectedIndex = -1;
+        }
+
+        // 页面加载时获取用户列表
+        document.addEventListener('DOMContentLoaded', loadUsers);
+    </script>
+</body>
+</html> 

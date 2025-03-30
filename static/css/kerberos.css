@@ -1,0 +1,209 @@
+/* Kerberos认证相关样式 */
+.kerberos-container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 20px;
+}
+
+/* 票据信息卡片 */
+.ticket-card {
+  background-color: #fff;
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  padding: 20px;
+  margin-bottom: 20px;
+}
+
+.ticket-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 1px solid #eaeaea;
+  padding-bottom: 15px;
+  margin-bottom: 15px;
+}
+
+.ticket-title {
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: #0d6efd;
+}
+
+.ticket-status {
+  padding: 5px 10px;
+  border-radius: 20px;
+  font-size: 0.875rem;
+  font-weight: 500;
+}
+
+.ticket-status-valid {
+  background-color: #e7f5ea;
+  color: #198754;
+}
+
+.ticket-status-expired {
+  background-color: #f8d7da;
+  color: #dc3545;
+}
+
+.ticket-info {
+  margin-bottom: 15px;
+}
+
+.ticket-info-row {
+  display: flex;
+  margin-bottom: 10px;
+}
+
+.ticket-info-label {
+  font-weight: 500;
+  color: #495057;
+  width: 150px;
+  flex-shrink: 0;
+}
+
+.ticket-info-value {
+  flex-grow: 1;
+  word-break: break-all;
+}
+
+.ticket-actions {
+  display: flex;
+  gap: 10px;
+  justify-content: flex-end;
+}
+
+/* 主体信息表格 */
+.principal-table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.principal-table th {
+  background-color: #f8f9fa;
+  color: #495057;
+  font-weight: 600;
+  text-align: left;
+  padding: 12px 15px;
+  border-bottom: 2px solid #e9ecef;
+}
+
+.principal-table td {
+  padding: 12px 15px;
+  border-bottom: 1px solid #e9ecef;
+}
+
+.principal-table tr:last-child td {
+  border-bottom: none;
+}
+
+.principal-table tr:hover {
+  background-color: #f8f9fa;
+}
+
+/* 票据计时器 */
+.ticket-timer {
+  display: flex;
+  align-items: center;
+  background-color: #f8f9fa;
+  padding: 10px 15px;
+  border-radius: 6px;
+  margin-top: 15px;
+}
+
+.ticket-timer-icon {
+  margin-right: 10px;
+  color: #0d6efd;
+}
+
+.ticket-expiry-time {
+  font-weight: 500;
+  color: #212529;
+}
+
+/* 服务访问按钮 */
+.service-access-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 8px 16px;
+  background-color: #0d6efd;
+  color: white;
+  border-radius: 4px;
+  font-weight: 500;
+  text-decoration: none;
+  transition: background-color 0.2s;
+}
+
+.service-access-btn:hover {
+  background-color: #0b5ed7;
+  color: white;
+}
+
+.service-access-btn i {
+  margin-right: 8px;
+}
+
+/* Kerberos流程图 */
+.kerberos-flow {
+  background-color: #f8f9fa;
+  border-radius: 8px;
+  padding: 20px;
+  margin: 20px 0;
+}
+
+.flow-step {
+  display: flex;
+  margin-bottom: 15px;
+  align-items: flex-start;
+}
+
+.flow-step-number {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  background-color: #0d6efd;
+  color: white;
+  border-radius: 50%;
+  font-weight: 600;
+  margin-right: 15px;
+  flex-shrink: 0;
+}
+
+.flow-step-content {
+  flex-grow: 1;
+}
+
+.flow-step-title {
+  font-weight: 600;
+  color: #212529;
+  margin-bottom: 5px;
+}
+
+.flow-step-description {
+  color: #6c757d;
+  font-size: 0.9rem;
+}
+
+/* Realm选择器 */
+.realm-selector {
+  background-color: #fff;
+  border: 1px solid #ced4da;
+  border-radius: 4px;
+  padding: 0.375rem 0.75rem;
+  font-size: 1rem;
+  width: 100%;
+  transition: border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
+}
+
+.realm-selector:focus {
+  border-color: #86b7fe;
+  outline: 0;
+  box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.25);
+} 

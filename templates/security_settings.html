@@ -1,0 +1,514 @@
+{% extends "base.html" %}
+
+{% block title %}安全设置{% endblock %}
+
+{% block additional_style %}
+<style>
+    .card {
+        margin-bottom: 20px;
+    }
+    .form-group {
+        margin-bottom: 1rem;
+    }
+    .principal-item {
+        padding: 10px;
+        border-radius: 5px;
+        margin-bottom: 10px;
+        background-color: #f8f9fa;
+    }
+    .principal-item:hover {
+        background-color: #e9ecef;
+    }
+    .config-content {
+        max-height: 300px;
+        overflow-y: auto;
+        background-color: #f8f9fa;
+        padding: 15px;
+        border-radius: 5px;
+        font-family: monospace;
+        font-size: 0.85rem;
+    }
+    .tab-content {
+        padding-top: 20px;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-12">
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="mb-0">安全设置</h5>
+                <a href="{{ url_for('dashboard') }}" class="btn btn-sm btn-outline-secondary">
+                    <i class="bi bi-arrow-left"></i> 返回仪表板
+                </a>
+            </div>
+            <div class="card-body">
+                <div class="alert alert-info">
+                    <i class="bi bi-info-circle-fill me-2"></i> 在此页面您可以管理 Kerberos 认证设置和相关安全配置。
+                </div>
+                
+                <!-- 选项卡导航 -->
+                <ul class="nav nav-tabs" id="securityTabs" role="tablist">
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link active" id="kdc-tab" data-bs-toggle="tab" data-bs-target="#kdc" type="button" role="tab" aria-controls="kdc" aria-selected="true">KDC 配置</button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" id="principals-tab" data-bs-toggle="tab" data-bs-target="#principals" type="button" role="tab" aria-controls="principals" aria-selected="false">Principals</button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" id="keytabs-tab" data-bs-toggle="tab" data-bs-target="#keytabs" type="button" role="tab" aria-controls="keytabs" aria-selected="false">Keytab 文件</button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" id="advanced-tab" data-bs-toggle="tab" data-bs-target="#advanced" type="button" role="tab" aria-controls="advanced" aria-selected="false">高级设置</button>
+                    </li>
+                </ul>
+                
+                <!-- 选项卡内容 -->
+                <div class="tab-content" id="securityTabsContent">
+                    <!-- KDC 配置 -->
+                    <div class="tab-pane fade show active" id="kdc" role="tabpanel" aria-labelledby="kdc-tab">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="card">
+                                    <div class="card-header">
+                                        <h6 class="mb-0">KDC 服务器配置</h6>
+                                    </div>
+                                    <div class="card-body">
+                                        <form id="kdcConfigForm">
+                                            <div class="mb-3">
+                                                <label for="kdcHost" class="form-label">KDC 主机</label>
+                                                <input type="text" class="form-control" id="kdcHost" value="kerberos.example.com">
+                                            </div>
+                                            <div class="mb-3">
+                                                <label for="kdcPort" class="form-label">KDC 端口</label>
+                                                <input type="number" class="form-control" id="kdcPort" value="88">
+                                            </div>
+                                            <div class="mb-3">
+                                                <label for="realm" class="form-label">Realm</label>
+                                                <input type="text" class="form-control" id="realm" value="EXAMPLE.COM">
+                                            </div>
+                                            <div class="mb-3">
+                                                <label for="adminServer" class="form-label">Admin 服务器</label>
+                                                <input type="text" class="form-control" id="adminServer" value="kerberos.example.com">
+                                            </div>
+                                            <div class="mb-3">
+                                                <label for="adminPort" class="form-label">Admin 端口</label>
+                                                <input type="number" class="form-control" id="adminPort" value="749">
+                                            </div>
+                                            <button type="button" class="btn btn-primary" onclick="saveKdcConfig()">保存配置</button>
+                                        </form>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="card">
+                                    <div class="card-header">
+                                        <h6 class="mb-0">KDC 状态</h6>
+                                    </div>
+                                    <div class="card-body">
+                                        <div class="mb-3">
+                                            <span class="badge bg-success mb-2">运行中</span>
+                                            <p>KDC 服务已启动，运行正常。</p>
+                                        </div>
+                                        <div class="mb-3">
+                                            <h6>服务状态</h6>
+                                            <div class="list-group">
+                                                <div class="list-group-item d-flex justify-content-between align-items-center">
+                                                    KDC 服务
+                                                    <span class="badge bg-success">运行中</span>
+                                                </div>
+                                                <div class="list-group-item d-flex justify-content-between align-items-center">
+                                                    Admin 服务
+                                                    <span class="badge bg-success">运行中</span>
+                                                </div>
+                                                <div class="list-group-item d-flex justify-content-between align-items-center">
+                                                    Kpropd 服务
+                                                    <span class="badge bg-danger">已停止</span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div class="btn-group">
+                                            <button class="btn btn-success" onclick="startKdc()">
+                                                <i class="bi bi-play-fill"></i> 启动
+                                            </button>
+                                            <button class="btn btn-danger" onclick="stopKdc()">
+                                                <i class="bi bi-stop-fill"></i> 停止
+                                            </button>
+                                            <button class="btn btn-primary" onclick="restartKdc()">
+                                                <i class="bi bi-arrow-clockwise"></i> 重启
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Principals 管理 -->
+                    <div class="tab-pane fade" id="principals" role="tabpanel" aria-labelledby="principals-tab">
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                <div class="input-group">
+                                    <input type="text" class="form-control" placeholder="搜索 principals">
+                                    <button class="btn btn-outline-secondary" type="button">搜索</button>
+                                </div>
+                            </div>
+                            <div class="col-md-6 text-end">
+                                <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addPrincipalModal">
+                                    <i class="bi bi-plus"></i> 添加 Principal
+                                </button>
+                            </div>
+                        </div>
+                        
+                        <div class="list-group">
+                            <div class="principal-item d-flex justify-content-between align-items-center">
+                                <div>
+                                    <h6 class="mb-1">admin/admin@EXAMPLE.COM</h6>
+                                    <span class="text-muted small">创建于: 2025-01-15, 有效期至: 2026-01-15</span>
+                                </div>
+                                <div class="btn-group">
+                                    <button class="btn btn-sm btn-outline-primary" onclick="editPrincipal('admin/admin@EXAMPLE.COM')">
+                                        <i class="bi bi-pencil"></i>
+                                    </button>
+                                    <button class="btn btn-sm btn-outline-danger" onclick="deletePrincipal('admin/admin@EXAMPLE.COM')">
+                                        <i class="bi bi-trash"></i>
+                                    </button>
+                                </div>
+                            </div>
+                            
+                            <div class="principal-item d-flex justify-content-between align-items-center">
+                                <div>
+                                    <h6 class="mb-1">hdfs/namenode@EXAMPLE.COM</h6>
+                                    <span class="text-muted small">创建于: 2025-01-15, 有效期至: 2026-01-15</span>
+                                </div>
+                                <div class="btn-group">
+                                    <button class="btn btn-sm btn-outline-primary" onclick="editPrincipal('hdfs/namenode@EXAMPLE.COM')">
+                                        <i class="bi bi-pencil"></i>
+                                    </button>
+                                    <button class="btn btn-sm btn-outline-danger" onclick="deletePrincipal('hdfs/namenode@EXAMPLE.COM')">
+                                        <i class="bi bi-trash"></i>
+                                    </button>
+                                </div>
+                            </div>
+                            
+                            <div class="principal-item d-flex justify-content-between align-items-center">
+                                <div>
+                                    <h6 class="mb-1">hdfs/datanode@EXAMPLE.COM</h6>
+                                    <span class="text-muted small">创建于: 2025-01-15, 有效期至: 2026-01-15</span>
+                                </div>
+                                <div class="btn-group">
+                                    <button class="btn btn-sm btn-outline-primary" onclick="editPrincipal('hdfs/datanode@EXAMPLE.COM')">
+                                        <i class="bi bi-pencil"></i>
+                                    </button>
+                                    <button class="btn btn-sm btn-outline-danger" onclick="deletePrincipal('hdfs/datanode@EXAMPLE.COM')">
+                                        <i class="bi bi-trash"></i>
+                                    </button>
+                                </div>
+                            </div>
+                            
+                            <div class="principal-item d-flex justify-content-between align-items-center">
+                                <div>
+                                    <h6 class="mb-1">yarn/resourcemanager@EXAMPLE.COM</h6>
+                                    <span class="text-muted small">创建于: 2025-01-15, 有效期至: 2026-01-15</span>
+                                </div>
+                                <div class="btn-group">
+                                    <button class="btn btn-sm btn-outline-primary" onclick="editPrincipal('yarn/resourcemanager@EXAMPLE.COM')">
+                                        <i class="bi bi-pencil"></i>
+                                    </button>
+                                    <button class="btn btn-sm btn-outline-danger" onclick="deletePrincipal('yarn/resourcemanager@EXAMPLE.COM')">
+                                        <i class="bi bi-trash"></i>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Keytab 文件管理 -->
+                    <div class="tab-pane fade" id="keytabs" role="tabpanel" aria-labelledby="keytabs-tab">
+                        <div class="row mb-3">
+                            <div class="col-md-12 text-end">
+                                <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#generateKeytabModal">
+                                    <i class="bi bi-file-earmark-plus"></i> 生成 Keytab
+                                </button>
+                            </div>
+                        </div>
+                        
+                        <div class="table-responsive">
+                            <table class="table table-hover">
+                                <thead>
+                                    <tr>
+                                        <th>Principal</th>
+                                        <th>Keytab 文件</th>
+                                        <th>创建时间</th>
+                                        <th>操作</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr>
+                                        <td>hdfs/namenode@EXAMPLE.COM</td>
+                                        <td>/etc/hadoop/hdfs.keytab</td>
+                                        <td>2025-01-15 14:30</td>
+                                        <td>
+                                            <button class="btn btn-sm btn-outline-primary" onclick="downloadKeytab('hdfs.keytab')">
+                                                <i class="bi bi-download"></i>
+                                            </button>
+                                            <button class="btn btn-sm btn-outline-danger" onclick="deleteKeytab('hdfs.keytab')">
+                                                <i class="bi bi-trash"></i>
+                                            </button>
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td>yarn/resourcemanager@EXAMPLE.COM</td>
+                                        <td>/etc/hadoop/yarn.keytab</td>
+                                        <td>2025-01-15 14:35</td>
+                                        <td>
+                                            <button class="btn btn-sm btn-outline-primary" onclick="downloadKeytab('yarn.keytab')">
+                                                <i class="bi bi-download"></i>
+                                            </button>
+                                            <button class="btn btn-sm btn-outline-danger" onclick="deleteKeytab('yarn.keytab')">
+                                                <i class="bi bi-trash"></i>
+                                            </button>
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td>hive/server2@EXAMPLE.COM</td>
+                                        <td>/etc/hive/hive.keytab</td>
+                                        <td>2025-01-15 14:40</td>
+                                        <td>
+                                            <button class="btn btn-sm btn-outline-primary" onclick="downloadKeytab('hive.keytab')">
+                                                <i class="bi bi-download"></i>
+                                            </button>
+                                            <button class="btn btn-sm btn-outline-danger" onclick="deleteKeytab('hive.keytab')">
+                                                <i class="bi bi-trash"></i>
+                                            </button>
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                    
+                    <!-- 高级设置 -->
+                    <div class="tab-pane fade" id="advanced" role="tabpanel" aria-labelledby="advanced-tab">
+                        <div class="row">
+                            <div class="col-md-12">
+                                <div class="card mb-4">
+                                    <div class="card-header">
+                                        <h6 class="mb-0">krb5.conf 配置</h6>
+                                    </div>
+                                    <div class="card-body">
+                                        <div class="config-content mb-3">
+                                            <pre id="krb5Config">[libdefaults]
+  default_realm = EXAMPLE.COM
+  dns_lookup_realm = false
+  dns_lookup_kdc = false
+  ticket_lifetime = 24h
+  renew_lifetime = 7d
+  forwardable = true
+
+[realms]
+  EXAMPLE.COM = {
+    kdc = kerberos.example.com:88
+    admin_server = kerberos.example.com:749
+  }
+
+[domain_realm]
+  .example.com = EXAMPLE.COM
+  example.com = EXAMPLE.COM</pre>
+                                        </div>
+                                        <button class="btn btn-primary" onclick="editKrb5Config()">编辑配置</button>
+                                        <button class="btn btn-success" onclick="saveKrb5Config()">保存配置</button>
+                                    </div>
+                                </div>
+                                
+                                <div class="card">
+                                    <div class="card-header">
+                                        <h6 class="mb-0">安全审计</h6>
+                                    </div>
+                                    <div class="card-body">
+                                        <form>
+                                            <div class="mb-3 form-check">
+                                                <input type="checkbox" class="form-check-input" id="enableAuditing" checked>
+                                                <label class="form-check-label" for="enableAuditing">启用安全审计</label>
+                                            </div>
+                                            <div class="mb-3">
+                                                <label for="auditLogPath" class="form-label">审计日志路径</label>
+                                                <input type="text" class="form-control" id="auditLogPath" value="/var/log/kerberos/audit.log">
+                                            </div>
+                                            <div class="mb-3">
+                                                <label for="auditLevel" class="form-label">审计级别</label>
+                                                <select class="form-select" id="auditLevel">
+                                                    <option value="INFO">INFO</option>
+                                                    <option value="WARNING">WARNING</option>
+                                                    <option value="ERROR" selected>ERROR</option>
+                                                    <option value="CRITICAL">CRITICAL</option>
+                                                </select>
+                                            </div>
+                                            <button type="button" class="btn btn-primary" onclick="saveAuditSettings()">保存设置</button>
+                                        </form>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 添加 Principal 模态框 -->
+<div class="modal fade" id="addPrincipalModal" tabindex="-1" aria-labelledby="addPrincipalModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="addPrincipalModalLabel">添加 Principal</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="addPrincipalForm">
+                    <div class="mb-3">
+                        <label for="principalName" class="form-label">Principal 名称</label>
+                        <input type="text" class="form-control" id="principalName" placeholder="例如：hdfs/datanode">
+                    </div>
+                    <div class="mb-3">
+                        <label for="principalRealm" class="form-label">Realm</label>
+                        <input type="text" class="form-control" id="principalRealm" value="EXAMPLE.COM">
+                    </div>
+                    <div class="mb-3">
+                        <label for="principalPassword" class="form-label">密码</label>
+                        <input type="password" class="form-control" id="principalPassword">
+                    </div>
+                    <div class="mb-3">
+                        <label for="expireDate" class="form-label">过期日期</label>
+                        <input type="date" class="form-control" id="expireDate">
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                <button type="button" class="btn btn-primary" onclick="addPrincipal()">添加</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 生成 Keytab 模态框 -->
+<div class="modal fade" id="generateKeytabModal" tabindex="-1" aria-labelledby="generateKeytabModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="generateKeytabModalLabel">生成 Keytab 文件</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="generateKeytabForm">
+                    <div class="mb-3">
+                        <label for="keytabPrincipal" class="form-label">Principal</label>
+                        <select class="form-select" id="keytabPrincipal">
+                            <option value="admin/admin@EXAMPLE.COM">admin/admin@EXAMPLE.COM</option>
+                            <option value="hdfs/namenode@EXAMPLE.COM">hdfs/namenode@EXAMPLE.COM</option>
+                            <option value="hdfs/datanode@EXAMPLE.COM">hdfs/datanode@EXAMPLE.COM</option>
+                            <option value="yarn/resourcemanager@EXAMPLE.COM">yarn/resourcemanager@EXAMPLE.COM</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label for="keytabPath" class="form-label">Keytab 文件路径</label>
+                        <input type="text" class="form-control" id="keytabPath" placeholder="例如：/etc/hadoop/user.keytab">
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                <button type="button" class="btn btn-primary" onclick="generateKeytab()">生成</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    function saveKdcConfig() {
+        alert('KDC 配置已保存');
+    }
+    
+    function startKdc() {
+        alert('正在启动 KDC 服务');
+    }
+    
+    function stopKdc() {
+        if (confirm('确定要停止 KDC 服务吗？这将影响 Kerberos 认证功能。')) {
+            alert('正在停止 KDC 服务');
+        }
+    }
+    
+    function restartKdc() {
+        if (confirm('确定要重启 KDC 服务吗？')) {
+            alert('正在重启 KDC 服务');
+        }
+    }
+    
+    function editPrincipal(principal) {
+        alert('编辑 Principal: ' + principal);
+    }
+    
+    function deletePrincipal(principal) {
+        if (confirm('确定要删除 Principal: ' + principal + ' 吗？')) {
+            alert('删除 Principal: ' + principal);
+        }
+    }
+    
+    function downloadKeytab(keytab) {
+        alert('下载 Keytab 文件: ' + keytab);
+    }
+    
+    function deleteKeytab(keytab) {
+        if (confirm('确定要删除 Keytab 文件: ' + keytab + ' 吗？')) {
+            alert('删除 Keytab 文件: ' + keytab);
+        }
+    }
+    
+    function addPrincipal() {
+        const principal = document.getElementById('principalName').value;
+        const realm = document.getElementById('principalRealm').value;
+        alert('添加 Principal: ' + principal + '@' + realm);
+        
+        // 关闭模态框
+        const modal = bootstrap.Modal.getInstance(document.getElementById('addPrincipalModal'));
+        modal.hide();
+    }
+    
+    function generateKeytab() {
+        const principal = document.getElementById('keytabPrincipal').value;
+        const path = document.getElementById('keytabPath').value;
+        alert('为 Principal: ' + principal + ' 生成 Keytab 文件: ' + path);
+        
+        // 关闭模态框
+        const modal = bootstrap.Modal.getInstance(document.getElementById('generateKeytabModal'));
+        modal.hide();
+    }
+    
+    function editKrb5Config() {
+        const config = document.getElementById('krb5Config');
+        config.contentEditable = true;
+        config.focus();
+        config.style.backgroundColor = '#fff';
+        config.style.border = '1px solid #ced4da';
+    }
+    
+    function saveKrb5Config() {
+        const config = document.getElementById('krb5Config');
+        config.contentEditable = false;
+        config.style.backgroundColor = '#f8f9fa';
+        config.style.border = 'none';
+        alert('krb5.conf 配置已保存');
+    }
+    
+    function saveAuditSettings() {
+        alert('安全审计设置已保存');
+    }
+</script>
+{% endblock %} 

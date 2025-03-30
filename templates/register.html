@@ -1,0 +1,78 @@
+{% extends "base.html" %}
+
+{% block title %}注册{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center align-items-center" style="min-height: calc(100vh - 180px);">
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-header text-center py-3">
+                <h4 class="mb-0">创建账号</h4>
+            </div>
+            <div class="card-body p-4">
+                {% with messages = get_flashed_messages(with_categories=true) %}
+                    {% if messages %}
+                        {% for category, message in messages %}
+                            <div class="alert alert-{{ category }}">{{ message }}</div>
+                        {% endfor %}
+                    {% endif %}
+                {% endwith %}
+                
+                <form method="POST" action="{{ url_for('register') }}" style="max-width: 280px; margin: 0 auto;">
+                    <div class="mb-3">
+                        <label for="username" class="form-label small">用户名</label>
+                        <input type="text" class="form-control form-control-sm" id="username" name="username" required autofocus>
+                    </div>
+                    <div class="mb-3">
+                        <label for="realm" class="form-label small">领域</label>
+                        <select id="realm" name="realm" class="form-control form-control-sm">
+                            <option value="HADOOP.COM">HADOOP.COM</option>
+                            <option value="DEV.LOCAL">DEV.LOCAL</option>
+                            <option value="TEST.COM">TEST.COM</option>
+                        </select>
+                        <small class="form-text text-muted small">选择您希望加入的Kerberos领域</small>
+                    </div>
+                    <div class="mb-3">
+                        <label for="email" class="form-label small">邮箱 (可选)</label>
+                        <input type="email" class="form-control form-control-sm" id="email" name="email">
+                        <small class="form-text text-muted small">如果不想提供邮箱，可以留空</small>
+                    </div>
+                    <div class="mb-3">
+                        <label for="password" class="form-label small">密码</label>
+                        <input type="password" class="form-control form-control-sm" id="password" name="password" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="confirm_password" class="form-label small">确认密码</label>
+                        <input type="password" class="form-control form-control-sm" id="confirm_password" name="confirm_password" required>
+                    </div>
+                    <div class="d-grid gap-2">
+                        <button type="submit" class="btn btn-primary btn-sm py-2">注册</button>
+                        <a href="{{ url_for('auth_choice') }}" class="btn btn-link btn-sm text-center">已有账号？立即登录</a>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block additional_style %}
+<style>
+.form-control-sm {
+    height: calc(1.5em + 0.5rem + 2px);
+    padding: 0.25rem 0.5rem;
+    font-size: 0.875rem;
+    line-height: 1.5;
+    border-radius: 0.2rem;
+}
+.btn-sm {
+    padding: 0.25rem 0.5rem;
+    font-size: 0.875rem;
+    line-height: 1.5;
+    border-radius: 0.2rem;
+}
+.small {
+    font-size: 0.875rem;
+}
+</style>
+{% endblock %} 

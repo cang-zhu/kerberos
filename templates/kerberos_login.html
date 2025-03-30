@@ -1,0 +1,201 @@
+{% extends 'base.html' %}
+
+{% block title %}Kerberos认证 - Hadoop管理系统{% endblock %}
+
+{% block custom_css %}
+<style>
+  .auth-card {
+    border-radius: 10px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.1);
+    background-color: #fff;
+    padding: 2rem;
+    max-width: 500px;
+    margin: 0 auto;
+  }
+  .kerberos-logo {
+    width: 80px;
+    height: 80px;
+    margin-bottom: 1.5rem;
+  }
+  .auth-heading {
+    font-size: 1.5rem;
+    font-weight: 600;
+    margin-bottom: 1.5rem;
+    color: #2c3e50;
+  }
+  .auth-label {
+    font-weight: 500;
+    color: #34495e;
+  }
+  .auth-input {
+    border-radius: 4px;
+    padding: 0.75rem 1rem;
+    border: 1px solid #dcdfe6;
+    width: 100%;
+    margin-bottom: 1rem;
+    font-size: 1rem;
+  }
+  .auth-input:focus {
+    border-color: #409eff;
+    box-shadow: 0 0 0 2px rgba(64, 158, 255, 0.2);
+  }
+  .auth-btn {
+    background-color: #0d6efd;
+    border: none;
+    color: white;
+    padding: 0.75rem 1.5rem;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 1rem;
+    font-weight: 500;
+    width: 100%;
+    margin-top: 1rem;
+  }
+  .auth-btn:hover {
+    background-color: #0b5ed7;
+  }
+  .auth-footer {
+    margin-top: 1.5rem;
+    font-size: 0.875rem;
+    color: #6c757d;
+  }
+  .realm-dropdown {
+    width: 100%;
+    padding: 0.75rem 1rem;
+    border-radius: 4px;
+    border: 1px solid #dcdfe6;
+    margin-bottom: 1rem;
+    font-size: 1rem;
+  }
+  .error-message {
+    color: #dc3545;
+    font-size: 0.875rem;
+    margin-bottom: 1rem;
+  }
+  .kerberos-info {
+    background-color: #f8f9fa;
+    border-left: 4px solid #0d6efd;
+    padding: 1rem;
+    margin-bottom: 1.5rem;
+    font-size: 0.875rem;
+    color: #495057;
+  }
+  .toggle-auth-link {
+    color: #0d6efd;
+    text-decoration: none;
+    font-weight: 500;
+  }
+  .toggle-auth-link:hover {
+    text-decoration: underline;
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container mt-5">
+  <div class="row">
+    <div class="col-md-8 offset-md-2">
+      <div class="auth-card">
+        <div class="text-center mb-4">
+          <img src="{{ url_for('static', filename='images/kerberos_logo.png') }}" alt="Kerberos Logo" class="kerberos-logo">
+          <h2 class="auth-heading">Hadoop Kerberos认证</h2>
+          
+          <div class="kerberos-info">
+            <p><strong>Kerberos认证</strong>是一种网络认证协议，使用票据进行身份验证，可以在非安全网络环境中，为客户端/服务器应用程序提供强大的认证功能。</p>
+          </div>
+        </div>
+        
+        {% if error %}
+        <div class="alert alert-danger">{{ error }}</div>
+        {% endif %}
+        
+        <form method="POST" action="{{ url_for('kerberos_login') }}">
+          <div class="mb-3">
+            <label for="principal" class="auth-label">主体名称 (Principal)</label>
+            <input type="text" id="principal" name="principal" class="auth-input" placeholder="user" required>
+            <small class="form-text text-muted">用户名或服务名 (例如: admin, hdfs)</small>
+          </div>
+          
+          <div class="mb-3">
+            <label for="realm" class="auth-label">领域 (Realm)</label>
+            <select id="realm" name="realm" class="realm-dropdown">
+              <option value="HADOOP.COM">HADOOP.COM</option>
+              <option value="DEV.LOCAL">DEV.LOCAL</option>
+              <option value="TEST.COM">TEST.COM</option>
+            </select>
+          </div>
+          
+          <div class="mb-3">
+            <label for="password" class="auth-label">密码</label>
+            <input type="password" id="password" name="password" class="auth-input" required>
+          </div>
+          
+          <div class="form-check mb-3">
+            <input type="checkbox" class="form-check-input" id="remember" name="remember">
+            <label class="form-check-label" for="remember">记住票据（10小时）</label>
+          </div>
+          
+          <button type="submit" class="auth-btn">获取Kerberos票据</button>
+        </form>
+        
+        <div class="auth-footer mt-4">
+          <div class="d-flex justify-content-between">
+            <a href="{{ url_for('auth_choice') }}" class="toggle-auth-link">
+              <i class="bi bi-arrow-left me-1"></i> 返回认证选择
+            </a>
+            <a href="{{ url_for('register') }}" class="toggle-auth-link">
+              还没有账号？立即注册 <i class="bi bi-arrow-right ms-1"></i>
+            </a>
+          </div>
+          <div class="text-end mt-2">
+            <a href="#" data-bs-toggle="modal" data-bs-target="#kerberosHelpModal" class="toggle-auth-link">
+              Kerberos帮助
+            </a>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Kerberos Help Modal -->
+<div class="modal fade" id="kerberosHelpModal" tabindex="-1" aria-labelledby="kerberosHelpModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="kerberosHelpModalLabel">Kerberos认证帮助</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <h6>什么是Kerberos认证？</h6>
+        <p>Kerberos是一种网络认证协议，它使用票据（Ticket）而不是密码来进行身份验证，这样可以避免在网络上传输密码。Kerberos协议使用强大的加密技术来保护敏感信息。</p>
+        
+        <h6>主体名称 (Principal) 格式</h6>
+        <p>Kerberos主体名称通常由三部分组成：<code>primary/instance@REALM</code></p>
+        <ul>
+          <li><strong>primary</strong>: 用户名或服务名，如 <code>hdfs</code>, <code>admin</code></li>
+          <li><strong>instance</strong>: 实例名，可选部分，通常是主机名，如 <code>hadoop-master.example.com</code></li>
+          <li><strong>REALM</strong>: 领域名，通常使用大写字母，如 <code>HADOOP.COM</code></li>
+        </ul>
+        
+        <h6>示例主体名称</h6>
+        <ul>
+          <li>用户: <code>alice@HADOOP.COM</code></li>
+          <li>服务: <code>hdfs/hadoop-master.example.com@HADOOP.COM</code></li>
+        </ul>
+
+        <h6>Hadoop环境中的常见服务主体</h6>
+        <ul>
+          <li><code>hdfs/hostname@REALM</code> - HDFS服务</li>
+          <li><code>mapred/hostname@REALM</code> - MapReduce服务</li>
+          <li><code>hive/hostname@REALM</code> - Hive服务</li>
+          <li><code>HTTP/hostname@REALM</code> - HTTP服务（用于WebHDFS等）</li>
+        </ul>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">关闭</button>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %} 

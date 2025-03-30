@@ -1,0 +1,369 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hadoop管理系统</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        .container { max-width: 800px; }
+        .card { margin-bottom: 20px; }
+        .hidden { display: none; }
+        .totp-display {
+            font-size: 24px;
+            font-family: monospace;
+            text-align: center;
+            margin: 10px 0;
+            letter-spacing: 2px;
+        }
+        .totp-timer {
+            width: 100%;
+            height: 4px;
+            background-color: #eee;
+            margin-bottom: 15px;
+        }
+        .totp-timer-bar {
+            height: 100%;
+            background-color: #007bff;
+            transition: width 1s linear;
+        }
+    </style>
+</head>
+<body>
+    <div class="container mt-5">
+        <!-- 登录表单 -->
+        <div id="loginForm" class="card">
+            <div class="card-header">
+                <h3>用户登录</h3>
+            </div>
+            <div class="card-body">
+                <div class="mb-3">
+                    <label for="username" class="form-label">用户名</label>
+                    <input type="text" class="form-control" id="username" required>
+                </div>
+                <div class="mb-3">
+                    <label for="password" class="form-label">密码</label>
+                    <input type="password" class="form-control" id="password" required>
+                </div>
+                <div class="mb-3">
+                    <label for="service" class="form-label">选择服务</label>
+                    <select class="form-control" id="service" required>
+                        <option value="">请选择服务</option>
+                        <option value="admin">管理员控制台</option>
+                        <option value="hdfs">HDFS</option>
+                        <option value="yarn">YARN</option>
+                        <option value="hive">Hive</option>
+                    </select>
+                </div>
+                <button onclick="login()" class="btn btn-primary">登录</button>
+            </div>
+        </div>
+
+        <!-- TOTP验证表单 -->
+        <div id="totpForm" class="card hidden">
+            <div class="card-header">
+                <h3>TOTP验证</h3>
+            </div>
+            <div class="card-body">
+                <div class="mb-3">
+                    <label for="totpSecret" class="form-label">TOTP密钥</label>
+                    <input type="text" class="form-control" id="totpSecret" required>
+                </div>
+                <div class="totp-timer">
+                    <div class="totp-timer-bar" id="totpTimerBar"></div>
+                </div>
+                <div class="totp-display" id="totpCode">------</div>
+                <div class="mb-3">
+                    <label for="totpInput" class="form-label">请输入上方显示的验证码</label>
+                    <input type="text" class="form-control" id="totpInput" required maxlength="6" pattern="\d{6}">
+                </div>
+                <button onclick="verifyTOTP()" class="btn btn-primary">验证</button>
+            </div>
+        </div>
+
+        <!-- Hadoop管理界面 -->
+        <div id="hadoopPanel" class="hidden">
+            <div class="card">
+                <div class="card-header">
+                    <h3>集群状态</h3>
+                </div>
+                <div class="card-body">
+                    <div id="clusterStatus"></div>
+                    <button onclick="refreshStatus()" class="btn btn-secondary mt-3">刷新状态</button>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-header">
+                    <h3>HDFS操作</h3>
+                </div>
+                <div class="card-body">
+                    <div class="mb-3">
+                        <label for="hdfsCommand" class="form-label">HDFS命令</label>
+                        <input type="text" class="form-control" id="hdfsCommand" placeholder="-ls /">
+                    </div>
+                    <button onclick="executeHDFS()" class="btn btn-primary">执行</button>
+                    <div id="hdfsOutput" class="mt-3"></div>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-header">
+                    <h3>YARN应用</h3>
+                </div>
+                <div class="card-body">
+                    <div class="mb-3">
+                        <label for="applicationPath" class="form-label">应用程序路径</label>
+                        <input type="text" class="form-control" id="applicationPath">
+                    </div>
+                    <div class="mb-3">
+                        <label for="applicationArgs" class="form-label">程序参数</label>
+                        <input type="text" class="form-control" id="applicationArgs">
+                    </div>
+                    <button onclick="submitYARN()" class="btn btn-primary">提交</button>
+                    <div id="yarnOutput" class="mt-3"></div>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-header">
+                    <h3>Hive查询</h3>
+                </div>
+                <div class="card-body">
+                    <div class="mb-3">
+                        <label for="hiveQuery" class="form-label">HiveQL查询</label>
+                        <textarea class="form-control" id="hiveQuery" rows="3"></textarea>
+                    </div>
+                    <button onclick="executeHive()" class="btn btn-primary">执行</button>
+                    <div id="hiveOutput" class="mt-3"></div>
+                </div>
+            </div>
+
+            <button onclick="logout()" class="btn btn-danger mt-3">登出</button>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        // 工具函数
+        function showError(message) {
+            alert(message);
+        }
+
+        function setAuthHeader() {
+            return {
+                'Authorization': `Bearer ${localStorage.getItem('token')}`,
+                'X-Hadoop-User': localStorage.getItem('username'),
+                'Content-Type': 'application/json'
+            };
+        }
+
+        // TOTP相关
+        let totpInterval;
+        let currentTOTP = '';
+
+        function startTOTPTimer() {
+            const timerBar = document.getElementById('totpTimerBar');
+            let timeLeft = 30;
+
+            function updateTimer() {
+                const percentage = (timeLeft / 30) * 100;
+                timerBar.style.width = `${percentage}%`;
+                timeLeft--;
+
+                if (timeLeft < 0) {
+                    timeLeft = 30;
+                    generateTOTP();
+                }
+            }
+
+            updateTimer();
+            return setInterval(updateTimer, 1000);
+        }
+
+        async function generateTOTP() {
+            const secret = document.getElementById('totpSecret').value;
+            if (!secret) return;
+
+            try {
+                const response = await fetch('/generate_totp', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ secret: secret })
+                });
+
+                const data = await response.json();
+                if (response.ok) {
+                    document.getElementById('totpCode').textContent = data.code;
+                    currentTOTP = data.code;
+                } else {
+                    showError(data.error);
+                }
+            } catch (error) {
+                showError('生成TOTP失败: ' + error);
+            }
+        }
+
+        // 登录相关
+        async function login() {
+            try {
+                const username = document.getElementById('username').value;
+                const password = document.getElementById('password').value;
+                const service = document.getElementById('service').value;
+
+                if (!service) {
+                    showError('请选择要访问的服务');
+                    return;
+                }
+
+                const response = await fetch('/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username, password, service })
+                });
+
+                const data = await response.json();
+                if (response.ok) {
+                    localStorage.setItem('username', username);
+                    document.getElementById('loginForm').classList.add('hidden');
+                    document.getElementById('totpForm').classList.remove('hidden');
+                    document.getElementById('totpSecret').value = data.totp_secret;
+                    generateTOTP();
+                    totpInterval = startTOTPTimer();
+                } else {
+                    showError(data.error);
+                }
+            } catch (error) {
+                showError('登录失败: ' + error);
+            }
+        }
+
+        async function verifyTOTP() {
+            try {
+                const totpInput = document.getElementById('totpInput').value;
+                
+                if (totpInput !== currentTOTP) {
+                    showError('验证码不正确');
+                    return;
+                }
+
+                const response = await fetch('/verify', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ totp_code: totpInput })
+                });
+
+                const data = await response.json();
+                if (response.ok) {
+                    clearInterval(totpInterval);
+                    document.getElementById('totpForm').classList.add('hidden');
+                    document.getElementById('hadoopPanel').classList.remove('hidden');
+                    refreshStatus();
+                } else {
+                    showError(data.error);
+                }
+            } catch (error) {
+                showError('TOTP验证失败: ' + error);
+            }
+        }
+
+        async function logout() {
+            try {
+                await fetch('/logout', { method: 'POST' });
+                localStorage.clear();
+                clearInterval(totpInterval);
+                document.getElementById('hadoopPanel').classList.add('hidden');
+                document.getElementById('loginForm').classList.remove('hidden');
+            } catch (error) {
+                showError('登出失败: ' + error);
+            }
+        }
+
+        // Hadoop操作
+        async function refreshStatus() {
+            try {
+                const response = await fetch('/api/hadoop/status', {
+                    headers: setAuthHeader()
+                });
+                const data = await response.json();
+                
+                if (response.ok) {
+                    document.getElementById('clusterStatus').innerHTML = `
+                        <div>HDFS状态: ${data.hdfs_status}</div>
+                        <div>YARN状态: ${data.yarn_status}</div>
+                        <div>已用空间: ${data.hdfs_used}</div>
+                        <div>可用空间: ${data.hdfs_available}</div>
+                    `;
+                } else {
+                    showError(data.error);
+                }
+            } catch (error) {
+                showError('获取状态失败: ' + error);
+            }
+        }
+
+        async function executeHDFS() {
+            try {
+                const command = document.getElementById('hdfsCommand').value;
+                const response = await fetch('/api/hadoop/hdfs', {
+                    method: 'POST',
+                    headers: setAuthHeader(),
+                    body: JSON.stringify({ command })
+                });
+                
+                const data = await response.json();
+                if (response.ok) {
+                    document.getElementById('hdfsOutput').textContent = data.output;
+                } else {
+                    showError(data.error);
+                }
+            } catch (error) {
+                showError('执行命令失败: ' + error);
+            }
+        }
+
+        async function submitYARN() {
+            try {
+                const applicationPath = document.getElementById('applicationPath').value;
+                const args = document.getElementById('applicationArgs').value.split(' ').filter(Boolean);
+
+                const response = await fetch('/api/hadoop/yarn/submit', {
+                    method: 'POST',
+                    headers: setAuthHeader(),
+                    body: JSON.stringify({ application_path: applicationPath, args })
+                });
+
+                const data = await response.json();
+                if (response.ok) {
+                    document.getElementById('yarnOutput').innerText = `应用ID: ${data.application_id}`;
+                } else {
+                    showError(data.error);
+                }
+            } catch (error) {
+                showError('提交YARN应用失败: ' + error);
+            }
+        }
+
+        async function executeHive() {
+            try {
+                const query = document.getElementById('hiveQuery').value;
+
+                const response = await fetch('/api/hadoop/hive/query', {
+                    method: 'POST',
+                    headers: setAuthHeader(),
+                    body: JSON.stringify({ query })
+                });
+
+                const data = await response.json();
+                if (response.ok) {
+                    document.getElementById('hiveOutput').innerText = data.result;
+                } else {
+                    showError(data.error);
+                }
+            } catch (error) {
+                showError('执行Hive查询失败: ' + error);
+            }
+        }
+    </script>
+</body>
+</html> 

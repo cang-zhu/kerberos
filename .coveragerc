@@ -1,0 +1,45 @@
+[run]
+# 源代码目录
+source = 
+    web
+    hadoop
+    kerberos
+    totp
+
+# 忽略的文件和目录
+omit =
+    */tests/*
+    */migrations/*
+    */__init__.py
+    */config.py
+    */wsgi.py
+    */gunicorn.py
+    */setup.py
+
+[report]
+# 排除行
+exclude_lines =
+    pragma: no cover
+    def __repr__
+    raise NotImplementedError
+    if __name__ == .__main__.:
+    pass
+    raise ImportError
+    except ImportError:
+    def main\(\):
+
+# 显示缺失行
+show_missing = True
+
+# 跳过空行
+skip_empty = True
+
+# 跳过被覆盖的文件
+skip_covered = False
+
+[html]
+# HTML报告目录
+directory = htmlcov
+
+# 标题
+title = 代码覆盖率报告 
