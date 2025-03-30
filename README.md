@@ -243,11 +243,103 @@ flask db upgrade
    - `config/hadoop/core-site.xml`：Hadoop核心配置
    - `config/hadoop/hdfs-site.xml`：HDFS配置
 
-2. Kerberos配置：
+2. Hadoop部署模式：
+
+   ### 伪分布式模式（单节点）
+   适用于开发和测试环境。所有 Hadoop 守护进程都运行在同一台机器上。
+
+   1. 配置 `core-site.xml`：
+   ```xml
+   <configuration>
+       <property>
+           <name>fs.defaultFS</name>
+           <value>hdfs://localhost:9000</value>
+       </property>
+       <property>
+           <name>hadoop.security.authentication</name>
+           <value>kerberos</value>
+       </property>
+       <property>
+           <name>hadoop.security.authorization</name>
+           <value>true</value>
+       </property>
+   </configuration>
+   ```
+
+   2. 配置 `hdfs-site.xml`：
+   ```xml
+   <configuration>
+       <property>
+           <name>dfs.replication</name>
+           <value>1</value>
+       </property>
+       <property>
+           <name>dfs.namenode.name.dir</name>
+           <value>/path/to/hadoop/dfs/name</value>
+       </property>
+       <property>
+           <name>dfs.datanode.data.dir</name>
+           <value>/path/to/hadoop/dfs/data</value>
+       </property>
+       <property>
+           <name>dfs.namenode.kerberos.principal</name>
+           <value>nn/_HOST@HADOOP.COM</value>
+       </property>
+       <property>
+           <name>dfs.namenode.keytab.file</name>
+           <value>/path/to/nn.service.keytab</value>
+       </property>
+       <property>
+           <name>dfs.datanode.kerberos.principal</name>
+           <value>dn/_HOST@HADOOP.COM</value>
+       </property>
+       <property>
+           <name>dfs.datanode.keytab.file</name>
+           <value>/path/to/dn.service.keytab</value>
+       </property>
+   </configuration>
+   ```
+
+   3. 初始化伪分布式环境：
+   ```bash
+   # 格式化 HDFS
+   hdfs namenode -format
+
+   # 创建 Kerberos 主体
+   sudo kadmin.local
+   kadmin.local: addprinc -randkey nn/localhost@HADOOP.COM
+   kadmin.local: addprinc -randkey dn/localhost@HADOOP.COM
+   kadmin.local: ktadd -k /path/to/nn.service.keytab nn/localhost@HADOOP.COM
+   kadmin.local: ktadd -k /path/to/dn.service.keytab dn/localhost@HADOOP.COM
+   kadmin.local: quit
+
+   # 启动 HDFS
+   start-dfs.sh
+
+   # 验证服务状态
+   jps  # 应该看到 NameNode 和 DataNode 进程
+   hdfs dfsadmin -report  # 查看 HDFS 状态
+   ```
+
+   4. 验证 Kerberos 认证：
+   ```bash
+   # 获取测试用户的票据
+   kinit testuser@HADOOP.COM
+
+   # 测试 HDFS 访问
+   hdfs dfs -ls /
+   hdfs dfs -mkdir /user/testuser
+   hdfs dfs -put localfile /user/testuser/
+   ```
+
+   ### 完全分布式模式
+   // ... existing distributed mode content ...
+
+3. Kerberos配置：
    - `config/krb5.conf`：Kerberos主配置
    - `config/kdc.conf`：KDC服务器配置
 
-3. 数据库配置：
+4. 数据库配置：
    - 使用`scripts/update_db.py`管理用户和TOTP密钥
 
 ## 启动服务
