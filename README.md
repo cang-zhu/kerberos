@@ -61,6 +61,11 @@ python -m pip install --upgrade pip
 pip install -r requirements.txt
 ```
 
+注意：Windows 环境下会自动安装适配的依赖：
+- 使用 `winkerberos` 替代 `python-kerberos`
+- 使用 `psycopg2` 替代 `psycopg2-binary`
+- 使用 `waitress` 替代 `gunicorn`
+
 3. 配置环境变量：
 ```bash
 # 复制环境变量模板
@@ -90,6 +95,107 @@ mkdir -p /var/log/krb5kdc
 5. 初始化数据库：
 ```bash
 flask db upgrade
+```
+
+## 配置说明
+
+1. Hadoop配置：
+   - `config/hadoop/core-site.xml`：Hadoop核心配置
+   - `config/hadoop/hdfs-site.xml`：HDFS配置
+
+2. Kerberos配置：
+   - `config/krb5.conf`：Kerberos主配置
+   - `config/kdc.conf`：KDC服务器配置
+
+3. 数据库配置：
+   - 使用`scripts/update_db.py`管理用户和TOTP密钥
+
+## 启动服务
+
+1. 启动Kerberos KDC服务：
+```bash
+krb5kdc -n
+```
+
+2. 启动HDFS服务：
+```bash
+start-dfs.sh
+```
+
+3. 启动Web应用：
+```bash
+FLASK_APP=app.py flask run --host=0.0.0.0 --port=5002
+```
+
+## 使用说明
+
+1. 访问Web界面：`http://localhost:5002`
+2. 使用用户名和密码登录
+3. 首次登录后，系统会自动生成TOTP密钥并显示二维码
+4. 使用系统提供的TOTP密钥进行二次验证
+5. 登录成功后可以进行HDFS操作
+
+## 安全特性
+
+- 双因素认证（用户名密码 + TOTP动态密码）
+- 系统内置TOTP生成和验证
+- Kerberos票据认证
+- 基于时间的一次性密码（TOTP）
+- 安全的密钥管理
+
+## 目录结构
+
+```
+.
+├── app.py                 # Flask应用主文件
+├── config/               # 配置文件目录
+│   ├── hadoop/          # Hadoop配置
+│   └── krb5.conf        # Kerberos配置
+├── scripts/             # 脚本文件
+│   └── update_db.py     # 数据库管理脚本
+├── static/              # 静态文件
+├── templates/           # HTML模板
+└── venv/               # Python虚拟环境
+```
+
+## 注意事项
+
+1. 确保所有必要的目录权限正确
+2. 首次运行需要初始化数据库和用户
+3. 请妥善保管TOTP密钥
+4. 定期更新TOTP密钥以提高安全性
+5. 生产环境部署时请使用HTTPS 
+
+### Windows环境
+
+1. 克隆项目并创建虚拟环境：
+```powershell
+git clone <repository-url>
+cd kerberos
+python -m venv venv
+.\venv\Scripts\activate
+```
+
+2. 安装Python依赖：
+```bash
+python -m pip install --upgrade pip
+pip install -r requirements.txt
+```
+
+注意：Windows 环境下会自动安装适配的依赖：
+- 使用 `winkerberos` 替代 `python-kerberos`
+- 使用 `psycopg2` 替代 `psycopg2-binary`
+- 使用 `waitress` 替代 `gunicorn`
+
+3. 启动服务器：
+```bash
+# Windows环境
+python run.py
+# 或者使用 waitress
+waitress-serve --port=5000 run:app
+
+# Unix环境
+gunicorn -w 4 -b 0.0.0.0:5000 run:app
 ```
 
 ## 配置说明
