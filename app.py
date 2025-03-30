@@ -17,6 +17,7 @@ import secrets
 import pyotp
 import subprocess
 from werkzeug.urls import url_parse
+from src.hadoop_service import HadoopService
 
 # 配置日志
 logging.basicConfig(
@@ -26,18 +27,19 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 # 数据库路径
-db_path = os.getenv('DATABASE_URL', 'sqlite:///instance/app.db').replace('sqlite:///', '')
+db_path = os.path.join(os.path.abspath(os.path.dirname(__file__)), 'app.db')
 
 # 创建应用实例
 app = Flask(__name__)
 
 # 配置
 app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'hard_to_guess_string')
-app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv('DATABASE_URL', 'sqlite:///instance/app.db')
+app.config['SQLALCHEMY_DATABASE_URI'] = f"sqlite:///{db_path}"
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 app.config['SESSION_TYPE'] = 'filesystem'
 app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(minutes=30)
 
+logger.info(f"数据库路径: {db_path}")
 logger.info(f"数据库URI: {app.config['SQLALCHEMY_DATABASE_URI']}")
 
 # 初始化扩展
@@ -46,28 +48,87 @@ login_manager = LoginManager(app)
 login_manager.login_view = 'login'
 login_manager.login_message = '请先登录'
 
-# 启动Kerberos服务
-def start_kerberos_services():
-    try:
-        # 从环境变量获取Kerberos路径，如果没有则使用默认路径
-        kerberos_path = os.environ.get('KERBEROS_PATH', '/usr/local/opt/krb5/sbin')
-        
-        # 启动KDC服务
-        subprocess.Popen([os.path.join(kerberos_path, 'krb5kdc'), '-n'], 
-                        stdout=subprocess.PIPE, 
-                        stderr=subprocess.PIPE)
-        logger.info("KDC服务已启动")
-        
-        # 启动Kadmin服务
-        subprocess.Popen([os.path.join(kerberos_path, 'kadmind'), '-nofork'], 
-                        stdout=subprocess.PIPE, 
-                        stderr=subprocess.PIPE)
-        logger.info("Kadmin服务已启动")
-    except Exception as e:
-        logger.error(f"启动Kerberos服务失败: {str(e)}")
+# 创建Hadoop服务管理实例
+hadoop_service = None
 
-# 在应用启动时启动Kerberos服务
-start_kerberos_services()
+def init_hadoop_service():
+    """初始化Hadoop服务"""
+    global hadoop_service
+    try:
+        hadoop_service = HadoopService()
+        # 检查Hadoop配置
+        config_ok, issues = hadoop_service.check_hadoop_config()
+        if not config_ok:
+            logger.error(f"Hadoop配置检查失败: {', '.join(issues)}")
+            return False
+            
+        # 启动Hadoop服务
+        success, message = hadoop_service.start_services()
+        if success:
+            logger.info(message)
+            return True
+        else:
+            logger.error(message)
+            return False
+    except Exception as e:
+        logger.error(f"初始化Hadoop服务时出错: {str(e)}")
+        return False
+
+# 替换before_first_request装饰器
+with app.app_context():
+    init_hadoop_service()
+
+# 添加Hadoop服务状态检查路由
+@app.route('/hadoop/status')
+@login_required
+def hadoop_status():
+    """检查Hadoop服务状态"""
+    if not hadoop_service:
+        return jsonify({
+            'status': 'error',
+            'message': 'Hadoop服务未初始化'
+        })
+    
+    running_services = hadoop_service.check_service_status()
+    service_ports = hadoop_service.get_service_ports()
+    
+    return jsonify({
+        'status': 'success',
+        'running_services': running_services,
+        'service_ports': service_ports
+    })
+
+@app.route('/hadoop/start')
+@login_required
+def hadoop_start():
+    """启动Hadoop服务"""
+    if not hadoop_service:
+        return jsonify({
+            'status': 'error',
+            'message': 'Hadoop服务未初始化'
+        })
+    
+    success, message = hadoop_service.start_services()
+    return jsonify({
+        'status': 'success' if success else 'error',
+        'message': message
+    })
+
+@app.route('/hadoop/stop')
+@login_required
+def hadoop_stop():
+    """停止Hadoop服务"""
+    if not hadoop_service:
+        return jsonify({
+            'status': 'error',
+            'message': 'Hadoop服务未初始化'
+        })
+    
+    success, message = hadoop_service.stop_services()
+    return jsonify({
+        'status': 'success' if success else 'error',
+        'message': message
+    })
 
 # 定义模型
 class User(UserMixin, db.Model):
@@ -149,6 +210,7 @@ def load_user(user_id):
 
 def init_db():
     """初始化数据库"""
+    logger.info(f"数据库路径: {db_path}")
     logger.info(f"数据库URI: {app.config['SQLALCHEMY_DATABASE_URI']}")
     
     try:
