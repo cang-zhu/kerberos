@@ -1,5 +1,5 @@
 from flask_migrate import Migrate
-from src.web.app import app, db
+from web.app import app, db
 
 migrate = Migrate(app, db)
 
