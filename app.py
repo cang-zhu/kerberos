@@ -309,7 +309,6 @@ def login():
     if request.method == 'POST':
         username = request.form.get('username')
         password = request.form.get('password')
-        realm = request.form.get('realm', 'HADOOP.COM')  # 获取用户选择的领域
         
         user = User.query.filter_by(username=username).first()
         
@@ -317,9 +316,8 @@ def login():
             flash('用户名或密码错误', 'danger')
             return render_template('login.html')
         
-        # 更新最后登录时间和领域
+        # 更新最后登录时间
         user.last_login = datetime.now()
-        user.last_realm = realm  # 更新用户的领域
         
         # 如果用户没有TOTP密钥，则生成一个
         if not user.totp_secret:
@@ -508,7 +506,7 @@ def dashboard():
         else:
             return redirect(url_for('verify_totp'))
     
-    # 获取当前时间，用于活动日志
+    # 获取当前时间，用于显示
     now = datetime.now()
     
     # 检查认证方式
@@ -545,13 +543,11 @@ def dashboard():
     else:
         # 普通登录用户
         user = current_user
-        realm = user.last_realm  # 获取用户最后使用的领域
         
         return render_template('dashboard.html', 
                           username=user.username,
                           is_admin=is_admin_user(),  # 使用通用函数判断管理员权限
                           is_kerberos=False,
-                          realm=realm,  # 传递领域信息
                           now=now)
 
 @app.route('/users')
@@ -677,9 +673,10 @@ def delete_user(username):
         app.logger.error(f"删除用户失败: {str(e)}", exc_info=True)
         return jsonify({'success': False, 'error': str(e)}), 500
 
-@app.route('/service_management')
+# 暂时禁用服务管理、安全设置和系统设置路由
+"""
+@app.route('/services')
 def service_management():
-    """服务管理页面"""
     # 检查认证和TOTP验证
     if not (current_user.is_authenticated or session.get('kerberos_authenticated')):
         flash('请先登录', 'warning')
@@ -698,7 +695,6 @@ def service_management():
 
 @app.route('/security')
 def security_settings():
-    """安全设置页面"""
     # 检查认证和TOTP验证
     if not (current_user.is_authenticated or session.get('kerberos_authenticated')):
         flash('请先登录', 'warning')
@@ -717,7 +713,6 @@ def security_settings():
 
 @app.route('/system')
 def system_settings():
-    """系统设置页面"""
     # 检查认证和TOTP验证
     if not (current_user.is_authenticated or session.get('kerberos_authenticated')):
         flash('请先登录', 'warning')
@@ -733,6 +728,7 @@ def system_settings():
         return redirect(url_for('dashboard'))
     
     return render_template('system_settings.html')
+"""
 
 @app.route('/logout')
 @login_required
