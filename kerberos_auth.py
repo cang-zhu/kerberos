@@ -380,56 +380,47 @@ class KerberosAuth:
             self.logger.warning(f"认证失败: {principal}@{realm}")
             return False
             
-    def create_principal(self, username, password, realm='HADOOP.COM'):
-        """在KDC中创建用户主体
+    def create_principal(self, principal, password, realm='HADOOP.COM'):
+        """创建Kerberos主体
         
         Args:
-            username (str): 用户名
+            principal (str): 主体名称
             password (str): 密码
             realm (str): 领域
-            
+        
         Returns:
-            bool: 是否成功创建主体
+            bool: 是否创建成功
         """
         try:
-            # 在开发模式下，更新系统凭据
-            if self.dev_mode:
-                self.logger.info(f"创建Kerberos主体: {username}@{realm}")
-                # 实际在开发环境不创建主体，直接返回成功
-                return True
-                
             # 构建完整的主体名称
-            principal = f"{username}@{realm}"
-            
-            # 设置环境变量
-            env = self.env.copy()
-            env['KRB5_CONFIG'] = self.conf_file
-            env['KRB5_KDC_PROFILE'] = os.path.join(os.path.dirname(self.conf_file), 'kdc.conf')
-            
+            if '@' not in principal:
+                full_principal = f"{principal}@{realm}"
+            else:
+                full_principal = principal
+
             # 使用kadmin.local创建主体
-            cmd = f"kadmin.local -q \"addprinc -pw {password} {username}@{realm}\""
-            self.logger.info(f"执行命令创建主体: {cmd}")
-            
+            cmd = ['/Users/huaisang/Homebrew/opt/krb5/sbin/kadmin.local', '-q', f'addprinc -pw {password} {full_principal}']
             process = subprocess.Popen(
                 cmd,
-                shell=True,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
-                env=env
+                env=self.env
             )
             
+            # 获取输出
             stdout, stderr = process.communicate()
             output = stdout.decode()
             
-            if process.returncode == 0 and "Principal" in output and "created" in output:
-                self.logger.info(f"成功创建主体: {principal}")
+            # 检查是否创建成功
+            if "Principal" in output and "created" in output:
+                self.logger.info(f"成功创建主体: {full_principal}")
                 return True
             else:
-                self.logger.error(f"创建主体失败: {stderr.decode()}")
+                self.logger.error(f"创建主体失败: {output}")
                 return False
                 
         except Exception as e:
-            self.logger.error(f"创建主体过程出错: {str(e)}")
+            self.logger.error(f"创建主体出错: {str(e)}")
             return False
 
 # 创建一个模拟的krb5.conf配置文件

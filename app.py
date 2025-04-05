@@ -1,9 +1,11 @@
+import os
+import sys
+from dotenv import load_dotenv
 from flask import Flask, render_template, request, redirect, url_for, flash, session, jsonify
 from flask_sqlalchemy import SQLAlchemy
 from flask_login import LoginManager, UserMixin, login_user, logout_user, login_required, current_user
 from werkzeug.security import generate_password_hash, check_password_hash
 from datetime import datetime, timedelta
-import os
 import logging
 import random
 import string
@@ -11,13 +13,27 @@ import hmac
 import hashlib
 import time
 import base64
-import sys
-from functools import wraps
 import secrets
 import pyotp
 import subprocess
 from werkzeug.urls import url_parse
 from src.hadoop_service import HadoopService
+from kerberos_auth import KerberosAuth
+
+# 加载环境变量
+load_dotenv()
+
+# 检查必要的环境变量
+required_env_vars = ['HADOOP_HOME', 'JAVA_HOME']
+missing_vars = [var for var in required_env_vars if not os.getenv(var)]
+if missing_vars:
+    print(f"错误: 缺少必要的环境变量: {', '.join(missing_vars)}")
+    print("请确保.env文件存在并包含所有必要的环境变量")
+    sys.exit(1)
+
+# 打印环境变量信息
+print(f"HADOOP_HOME: {os.getenv('HADOOP_HOME')}")
+print(f"JAVA_HOME: {os.getenv('JAVA_HOME')}")
 
 # 配置日志
 logging.basicConfig(
@@ -50,33 +66,86 @@ login_manager.login_message = '请先登录'
 
 # 创建Hadoop服务管理实例
 hadoop_service = None
+kerberos_auth = None
 
-def init_hadoop_service():
-    """初始化Hadoop服务"""
-    global hadoop_service
+# Kerberos配置
+KRB5_CONFIG = '/Users/huaisang/Documents/研究生/研一（下）/kerberos/config/krb5.conf'
+KRB5_KDC_PROFILE = '/Users/huaisang/Documents/研究生/研一（下）/kerberos/config/kdc.conf'
+KDC_DB_PATH = '/Users/huaisang/Documents/研究生/研一（下）/kerberos/var/krb5kdc/principal'
+
+def init_services():
+    """初始化所有服务"""
+    global hadoop_service, kerberos_auth
+    
+    # 初始化Hadoop服务
     try:
         hadoop_service = HadoopService()
         # 检查Hadoop配置
         config_ok, issues = hadoop_service.check_hadoop_config()
         if not config_ok:
             logger.error(f"Hadoop配置检查失败: {', '.join(issues)}")
-            return False
-            
-        # 启动Hadoop服务
-        success, message = hadoop_service.start_services()
-        if success:
-            logger.info(message)
-            return True
         else:
-            logger.error(message)
-            return False
+            # 启动Hadoop服务
+            success, message = hadoop_service.start_services()
+            if success:
+                logger.info(message)
+            else:
+                logger.error(message)
     except Exception as e:
         logger.error(f"初始化Hadoop服务时出错: {str(e)}")
-        return False
+
+    # 初始化Kerberos服务
+    try:
+        # 初始化Kerberos认证服务
+        kerberos_auth = KerberosAuth()
+        kerberos_auth.conf_file = KRB5_CONFIG
+        kerberos_auth.kdc_conf = KRB5_KDC_PROFILE
+        kerberos_auth.kdc_db_path = KDC_DB_PATH
+        kerberos_auth.dev_mode = True
+        
+        # 初始化KDC服务
+        kerberos_auth.initialize()
+        
+        # 检查并启动KDC服务
+        if not os.path.exists(KDC_DB_PATH):
+            logger.info("初始化KDC数据库...")
+            subprocess.run([
+                '/Users/huaisang/Homebrew/opt/krb5/sbin/kdb5_util',
+                'create',
+                '-r', 'HADOOP.COM',
+                '-s'
+            ], env={
+                'KRB5_CONFIG': KRB5_CONFIG,
+                'KRB5_KDC_PROFILE': KRB5_KDC_PROFILE
+            })
+        
+        # 启动KDC服务
+        logger.info("启动KDC服务...")
+        subprocess.Popen([
+            '/Users/huaisang/Homebrew/opt/krb5/sbin/krb5kdc',
+            '-P', '/Users/huaisang/Documents/研究生/研一（下）/kerberos/var/krb5kdc/krb5kdc.pid'
+        ], env={
+            'KRB5_CONFIG': KRB5_CONFIG,
+            'KRB5_KDC_PROFILE': KRB5_KDC_PROFILE
+        })
+        
+        # 启动kadmin服务
+        logger.info("启动kadmin服务...")
+        subprocess.Popen([
+            '/Users/huaisang/Homebrew/opt/krb5/sbin/kadmind',
+            '-nofork'
+        ], env={
+            'KRB5_CONFIG': KRB5_CONFIG,
+            'KRB5_KDC_PROFILE': KRB5_KDC_PROFILE
+        })
+        
+        logger.info("Kerberos服务初始化完成")
+    except Exception as e:
+        logger.error(f"初始化Kerberos服务时出错: {str(e)}")
 
 # 替换before_first_request装饰器
 with app.app_context():
-    init_hadoop_service()
+    init_services()
 
 # 添加Hadoop服务状态检查路由
 @app.route('/hadoop/status')
@@ -673,10 +742,9 @@ def delete_user(username):
         app.logger.error(f"删除用户失败: {str(e)}", exc_info=True)
         return jsonify({'success': False, 'error': str(e)}), 500
 
-# 暂时禁用服务管理、安全设置和系统设置路由
-"""
-@app.route('/services')
+@app.route('/service_management')
 def service_management():
+    """服务管理页面"""
     # 检查认证和TOTP验证
     if not (current_user.is_authenticated or session.get('kerberos_authenticated')):
         flash('请先登录', 'warning')
@@ -695,6 +763,7 @@ def service_management():
 
 @app.route('/security')
 def security_settings():
+    """安全设置页面"""
     # 检查认证和TOTP验证
     if not (current_user.is_authenticated or session.get('kerberos_authenticated')):
         flash('请先登录', 'warning')
@@ -713,6 +782,7 @@ def security_settings():
 
 @app.route('/system')
 def system_settings():
+    """系统设置页面"""
     # 检查认证和TOTP验证
     if not (current_user.is_authenticated or session.get('kerberos_authenticated')):
         flash('请先登录', 'warning')
@@ -728,7 +798,6 @@ def system_settings():
         return redirect(url_for('dashboard'))
     
     return render_template('system_settings.html')
-"""
 
 @app.route('/logout')
 @login_required
@@ -799,14 +868,6 @@ def register():
             return render_template('register.html')
         
     return render_template('register.html')
-
-# 导入Kerberos认证模块
-from kerberos_auth import KerberosAuth
-
-# 初始化Kerberos认证
-kerberos_auth = KerberosAuth()
-# 强制使用开发模式
-kerberos_auth.dev_mode = True
 
 # Kerberos认证视图
 @app.route('/kerberos/login', methods=['GET', 'POST'])
@@ -1085,6 +1146,12 @@ if __name__ == '__main__':
     with app.app_context():
         if init_db():
             logger.info("数据库初始化成功，正在启动应用...")
+            # 初始化Kerberos认证服务
+            kerberos_auth = KerberosAuth()
+            kerberos_auth.conf_file = KRB5_CONFIG
+            kerberos_auth.kdc_conf = KRB5_KDC_PROFILE
+            kerberos_auth.kdc_db_path = KDC_DB_PATH
+            kerberos_auth.dev_mode = True
             kerberos_auth.initialize()
             app.run(host='0.0.0.0', port=5002, debug=True)
         else:
