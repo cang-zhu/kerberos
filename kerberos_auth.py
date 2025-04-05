@@ -8,6 +8,10 @@ import base64
 import tempfile
 from datetime import datetime, timedelta
 from flask import session
+from dotenv import load_dotenv
+
+# 加载环境变量
+load_dotenv()
 
 # 配置日志
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
@@ -18,8 +22,10 @@ class KerberosAuth:
     
     def __init__(self):
         """初始化Kerberos环境"""
-        # 使用项目目录下的配置文件
-        self.conf_file = os.path.join(os.path.abspath(os.path.dirname(__file__)), 'config/krb5.conf')
+        # 使用环境变量中的配置文件路径
+        self.conf_file = os.getenv('KRB5_CONFIG')
+        self.kdc_conf = os.getenv('KRB5_KDC_PROFILE')
+        self.kdc_db_path = os.getenv('KDC_DB_PATH')
         self.logger = logging.getLogger('kerberos_auth')
         
         # 开发模式标志
@@ -399,7 +405,7 @@ class KerberosAuth:
                 full_principal = principal
 
             # 使用kadmin.local创建主体
-            cmd = ['/Users/huaisang/Homebrew/opt/krb5/sbin/kadmin.local', '-q', f'addprinc -pw {password} {full_principal}']
+            cmd = [os.getenv('KADMIND_PATH'), '-q', f'addprinc -pw {password} {full_principal}']
             process = subprocess.Popen(
                 cmd,
                 stdout=subprocess.PIPE,

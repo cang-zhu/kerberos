@@ -24,7 +24,16 @@ from kerberos_auth import KerberosAuth
 load_dotenv()
 
 # 检查必要的环境变量
-required_env_vars = ['HADOOP_HOME', 'JAVA_HOME']
+required_env_vars = [
+    'HADOOP_HOME', 
+    'JAVA_HOME',
+    'KRB5_CONFIG',
+    'KRB5_KDC_PROFILE',
+    'KDC_DB_PATH',
+    'KRB5_UTIL_PATH',
+    'KRB5KDC_PATH',
+    'KADMIND_PATH'
+]
 missing_vars = [var for var in required_env_vars if not os.getenv(var)]
 if missing_vars:
     print(f"错误: 缺少必要的环境变量: {', '.join(missing_vars)}")
@@ -34,6 +43,8 @@ if missing_vars:
 # 打印环境变量信息
 print(f"HADOOP_HOME: {os.getenv('HADOOP_HOME')}")
 print(f"JAVA_HOME: {os.getenv('JAVA_HOME')}")
+print(f"KRB5_CONFIG: {os.getenv('KRB5_CONFIG')}")
+print(f"KRB5_KDC_PROFILE: {os.getenv('KRB5_KDC_PROFILE')}")
 
 # 配置日志
 logging.basicConfig(
@@ -69,9 +80,9 @@ hadoop_service = None
 kerberos_auth = None
 
 # Kerberos配置
-KRB5_CONFIG = '/Users/huaisang/Documents/研究生/研一（下）/kerberos/config/krb5.conf'
-KRB5_KDC_PROFILE = '/Users/huaisang/Documents/研究生/研一（下）/kerberos/config/kdc.conf'
-KDC_DB_PATH = '/Users/huaisang/Documents/研究生/研一（下）/kerberos/var/krb5kdc/principal'
+KRB5_CONFIG = os.getenv('KRB5_CONFIG')
+KRB5_KDC_PROFILE = os.getenv('KRB5_KDC_PROFILE')
+KDC_DB_PATH = os.getenv('KDC_DB_PATH')
 
 def init_services():
     """初始化所有服务"""
@@ -110,7 +121,7 @@ def init_services():
         if not os.path.exists(KDC_DB_PATH):
             logger.info("初始化KDC数据库...")
             subprocess.run([
-                '/Users/huaisang/Homebrew/opt/krb5/sbin/kdb5_util',
+                os.getenv('KRB5_UTIL_PATH'),
                 'create',
                 '-r', 'HADOOP.COM',
                 '-s'
@@ -122,8 +133,8 @@ def init_services():
         # 启动KDC服务
         logger.info("启动KDC服务...")
         subprocess.Popen([
-            '/Users/huaisang/Homebrew/opt/krb5/sbin/krb5kdc',
-            '-P', '/Users/huaisang/Documents/研究生/研一（下）/kerberos/var/krb5kdc/krb5kdc.pid'
+            os.getenv('KRB5KDC_PATH'),
+            '-P', os.path.join(os.path.dirname(KDC_DB_PATH), 'krb5kdc.pid')
         ], env={
             'KRB5_CONFIG': KRB5_CONFIG,
             'KRB5_KDC_PROFILE': KRB5_KDC_PROFILE
@@ -132,7 +143,7 @@ def init_services():
         # 启动kadmin服务
         logger.info("启动kadmin服务...")
         subprocess.Popen([
-            '/Users/huaisang/Homebrew/opt/krb5/sbin/kadmind',
+            os.getenv('KADMIND_PATH'),
             '-nofork'
         ], env={
             'KRB5_CONFIG': KRB5_CONFIG,
