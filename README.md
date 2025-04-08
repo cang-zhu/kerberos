@@ -403,3 +403,26 @@ waitress-serve --port=5002 run:app
 3. 请妥善保管TOTP密钥
 4. 定期更新TOTP密钥以提高安全性
 5. 生产环境部署时请使用HTTPS 
+
+## 环境变量配置
+
+系统需要以下环境变量才能正常运行：
+
+- `HADOOP_HOME`: Hadoop安装目录
+- `JAVA_HOME`: Java安装目录
+- `KRB5_CONFIG`: Kerberos配置文件路径，通常为/etc/krb5.conf
+- `KRB5_KDC_PROFILE`: KDC配置文件路径，通常为/var/kerberos/krb5kdc/kdc.conf
+- `KDC_DB_PATH`: KDC数据库路径，通常为/var/kerberos/krb5kdc/principal
+- `KRB5_UTIL_PATH`: kdb5_util工具路径
+- `KRB5KDC_PATH`: krb5kdc服务程序路径
+- `KADMIND_PATH`: kadmind服务程序路径
+
+项目提供了自动环境变量检测脚本，可以帮助您快速设置所需的环境变量：
+
+```bash
+# 在项目根目录执行
+chmod +x scripts/find_paths.sh
+./scripts/find_paths.sh
+```
+
+脚本会自动查找系统中的相关路径并生成.env文件。 
