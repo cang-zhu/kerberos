@@ -27,7 +27,7 @@ class HadoopService:
     def check_service_status(self) -> List[str]:
         """检查Hadoop服务状态"""
         try:
-            result = subprocess.run(['jps'], capture_output=True, text=True)
+            result = subprocess.run(['jps'], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
             running_services = []
             for line in result.stdout.splitlines():
                 if any(service in line for service in ['NameNode', 'DataNode', 'ResourceManager', 'NodeManager']):
