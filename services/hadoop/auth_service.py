@@ -12,7 +12,7 @@ class HadoopAuthService:
         try:
             # 获取用户组信息
             cmd = f"kadmin.local -q 'get_groups {principal}'"
-            result = subprocess.run(cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+            result = subprocess.run(cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, universal_newlines=True)
             groups = result.stdout.strip().split('\n')
             
             # 检查权限
@@ -32,7 +32,7 @@ class HadoopAuthService:
         """获取用户所属的组"""
         try:
             cmd = f"kadmin.local -q 'get_groups {principal}'"
-            result = subprocess.run(cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+            result = subprocess.run(cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, universal_newlines=True)
             return result.stdout.strip().split('\n')
         except Exception as e:
             self.logger.error(f"获取用户组失败: {str(e)}")

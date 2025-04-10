@@ -2,14 +2,14 @@ import os
 import logging
 import paramiko
 from typing import List, Dict, Optional
-from dataclasses import dataclass
 
-@dataclass
+# 用普通类替换dataclass
 class NodeInfo:
-    hostname: str
-    ip: str
-    role: List[str]  # 可能的角色: namenode, datanode, resourcemanager, nodemanager, hiveserver
-    status: str = 'unknown'  # unknown, running, stopped, error
+    def __init__(self, hostname: str, ip: str, role: List[str], status: str = 'unknown'):
+        self.hostname = hostname
+        self.ip = ip
+        self.role = role  # 可能的角色: namenode, datanode, resourcemanager, nodemanager, hiveserver
+        self.status = status  # unknown, running, stopped, error
 
 class HadoopClusterManager:
     def __init__(self, config_dir: str):

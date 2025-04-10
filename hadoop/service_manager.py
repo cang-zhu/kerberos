@@ -73,7 +73,7 @@ class HadoopServiceManager:
                 shell=True,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
-                text=True
+                universal_newlines=True
             )
             if result.returncode != 0:
                 return False
@@ -109,7 +109,7 @@ class HadoopServiceManager:
                 env=env,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
-                text=True
+                universal_newlines=True
             )
             
             if result.returncode != 0:

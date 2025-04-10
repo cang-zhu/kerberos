@@ -101,7 +101,7 @@ class HadoopServiceManager:
                 return False
 
             # 使用jps命令检查Java进程
-            result = subprocess.run(['jps', '-l'], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+            result = subprocess.run(['jps', '-l'], stdout=subprocess.PIPE, stderr=subprocess.PIPE, universal_newlines=True)
             if result.returncode != 0:
                 self.logger.error(f"Failed to run jps command: {result.stderr}")
                 return False
@@ -200,7 +200,7 @@ class HadoopServiceManager:
                 env=env,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
-                text=True
+                universal_newlines=True
             )
             
             # 等待一段时间检查进程是否启动
@@ -251,7 +251,7 @@ class HadoopServiceManager:
             
             if cmd:
                 self.logger.info(f"Executing command: {' '.join(cmd)}")
-                result = subprocess.run(cmd, env=env, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+                result = subprocess.run(cmd, env=env, stdout=subprocess.PIPE, stderr=subprocess.PIPE, universal_newlines=True)
                 if result.returncode != 0:
                     self.logger.error(f"Failed to stop {service_name}: {result.stderr}")
                     return False
