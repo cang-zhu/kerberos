@@ -24,16 +24,7 @@ from kerberos_auth import KerberosAuth
 load_dotenv()
 
 # 检查必要的环境变量
-required_env_vars = [
-    'HADOOP_HOME', 
-    'JAVA_HOME',
-    'KRB5_CONFIG',
-    'KRB5_KDC_PROFILE',
-    'KDC_DB_PATH',
-    'KRB5_UTIL_PATH',
-    'KRB5KDC_PATH',
-    'KADMIND_PATH'
-]
+required_env_vars = ['HADOOP_HOME', 'JAVA_HOME']
 missing_vars = [var for var in required_env_vars if not os.getenv(var)]
 if missing_vars:
     print(f"错误: 缺少必要的环境变量: {', '.join(missing_vars)}")
@@ -43,8 +34,6 @@ if missing_vars:
 # 打印环境变量信息
 print(f"HADOOP_HOME: {os.getenv('HADOOP_HOME')}")
 print(f"JAVA_HOME: {os.getenv('JAVA_HOME')}")
-print(f"KRB5_CONFIG: {os.getenv('KRB5_CONFIG')}")
-print(f"KRB5_KDC_PROFILE: {os.getenv('KRB5_KDC_PROFILE')}")
 
 # 配置日志
 logging.basicConfig(
@@ -80,9 +69,9 @@ hadoop_service = None
 kerberos_auth = None
 
 # Kerberos配置
-KRB5_CONFIG = os.getenv('KRB5_CONFIG')
-KRB5_KDC_PROFILE = os.getenv('KRB5_KDC_PROFILE')
-KDC_DB_PATH = os.getenv('KDC_DB_PATH')
+KRB5_CONFIG = '/Users/huaisang/Documents/研究生/研一（下）/kerberos/config/krb5.conf'
+KRB5_KDC_PROFILE = '/Users/huaisang/Documents/研究生/研一（下）/kerberos/config/kdc.conf'
+KDC_DB_PATH = '/Users/huaisang/Documents/研究生/研一（下）/kerberos/var/krb5kdc/principal'
 
 def init_services():
     """初始化所有服务"""
@@ -121,7 +110,7 @@ def init_services():
         if not os.path.exists(KDC_DB_PATH):
             logger.info("初始化KDC数据库...")
             subprocess.run([
-                os.getenv('KRB5_UTIL_PATH'),
+                '/Users/huaisang/Homebrew/opt/krb5/sbin/kdb5_util',
                 'create',
                 '-r', 'HADOOP.COM',
                 '-s'
@@ -133,8 +122,8 @@ def init_services():
         # 启动KDC服务
         logger.info("启动KDC服务...")
         subprocess.Popen([
-            os.getenv('KRB5KDC_PATH'),
-            '-P', os.path.join(os.path.dirname(KDC_DB_PATH), 'krb5kdc.pid')
+            '/Users/huaisang/Homebrew/opt/krb5/sbin/krb5kdc',
+            '-P', '/Users/huaisang/Documents/研究生/研一（下）/kerberos/var/krb5kdc/krb5kdc.pid'
         ], env={
             'KRB5_CONFIG': KRB5_CONFIG,
             'KRB5_KDC_PROFILE': KRB5_KDC_PROFILE
@@ -143,7 +132,7 @@ def init_services():
         # 启动kadmin服务
         logger.info("启动kadmin服务...")
         subprocess.Popen([
-            os.getenv('KADMIND_PATH'),
+            '/Users/huaisang/Homebrew/opt/krb5/sbin/kadmind',
             '-nofork'
         ], env={
             'KRB5_CONFIG': KRB5_CONFIG,
@@ -223,6 +212,7 @@ class User(UserMixin, db.Model):
     last_login = db.Column(db.DateTime)
     roles = db.Column(db.String(255))  # 存储角色列表，用逗号分隔
     is_admin = db.Column(db.Boolean, default=False)
+    is_active = db.Column(db.Boolean, default=True)
     last_realm = db.Column(db.String(50), nullable=True)  # 存储最后使用的Kerberos领域
     
     def __init__(self, username, email=None, is_admin=False, realm=None):
@@ -232,6 +222,7 @@ class User(UserMixin, db.Model):
         self.is_admin = is_admin
         self.last_realm = realm
         self.created_at = datetime.now()
+        self.is_active = True
     
     def set_password(self, password):
         """设置密码"""
@@ -398,18 +389,16 @@ def login():
         
         # 更新最后登录时间
         user.last_login = datetime.now()
+        db.session.commit()
         
         # 如果用户没有TOTP密钥，则生成一个
         if not user.totp_secret:
             totp = TOTP()
             user.totp_secret = totp.secret
-        
-        db.session.commit()
+            db.session.commit()
         
         # 保存用户ID，以便在TOTP验证时使用
         session['user_id_for_totp'] = user.id
-        
-        # 确保session已保存
         session.modified = True
         
         # 记录一下session中的值，用于调试
@@ -607,13 +596,9 @@ def dashboard():
         session['is_admin'] = is_admin
         
         # 计算票据时间
-        login_time_str = session.get('kerberos_login_time', datetime.now().isoformat())
-        expiry_time_str = session.get('kerberos_expiry', 
-                                  (datetime.now() + timedelta(hours=10)).isoformat())
-        
-        # 使用strptime替代fromisoformat
-        login_time = datetime.strptime(login_time_str.split('+')[0], '%Y-%m-%dT%H:%M:%S.%f')
-        expiry_time = datetime.strptime(expiry_time_str.split('+')[0], '%Y-%m-%dT%H:%M:%S.%f')
+        login_time = datetime.fromisoformat(session.get('kerberos_login_time', datetime.now().isoformat()))
+        expiry_time = datetime.fromisoformat(session.get('kerberos_expiry', 
+                                            (datetime.now() + timedelta(hours=10)).isoformat()))
         
         return render_template('dashboard.html',
                            username=username,
@@ -675,9 +660,8 @@ def get_users():
         for user in users:
             user_list.append({
                 'username': user.username,
-                'roles': user.roles,
+                'is_admin': user.is_admin,
                 'is_active': user.is_active,
-                'totp_enabled': bool(user.totp_secret),
                 'last_login': user.last_login.strftime('%Y-%m-%d %H:%M:%S') if user.last_login else None
             })
         return jsonify({'success': True, 'users': user_list})
@@ -703,7 +687,6 @@ def create_user():
         data = request.get_json()
         username = data.get('username')
         password = data.get('password')
-        roles = data.get('roles', [])
         
         if not username or not password:
             return jsonify({'success': False, 'error': '用户名和密码不能为空'}), 400
@@ -713,7 +696,6 @@ def create_user():
             
         user = User(username=username)
         user.set_password(password)
-        user.roles = roles
         db.session.add(user)
         db.session.commit()
         
@@ -743,8 +725,8 @@ def delete_user(username):
             return jsonify({'success': False, 'error': '用户不存在'}), 404
             
         # 防止删除最后一个管理员账户
-        if user.has_role('admin'):
-            admin_count = User.query.filter(User.roles.contains('admin')).count()
+        if user.is_admin:
+            admin_count = User.query.filter_by(is_admin=True).count()
             if admin_count <= 1:
                 return jsonify({'success': False, 'error': '不能删除唯一的管理员账户'}), 400
         
@@ -827,36 +809,55 @@ def register():
     if request.method == 'POST':
         username = request.form.get('username')
         password = request.form.get('password')
-        confirm_password = request.form.get('confirm_password')
+        confirm_password = request.form.get('confirmPassword')
         email = request.form.get('email', '').strip()  # 清除可能的空格
         realm = request.form.get('realm', 'HADOOP.COM')  # 获取用户选择的领域
         
+        # 检查是否是管理员在添加用户
+        is_admin_creating = current_user.is_authenticated and current_user.is_admin
+        
         # 简单表单验证
         if not username or not password:
-            flash('用户名和密码不能为空', 'danger')
+            error_msg = '用户名和密码不能为空'
+            if is_admin_creating:
+                return jsonify({'success': False, 'error': error_msg})
+            flash(error_msg, 'danger')
             return render_template('register.html')
             
         if password != confirm_password:
-            flash('两次输入的密码不一致', 'danger')
+            error_msg = '两次输入的密码不一致'
+            if is_admin_creating:
+                return jsonify({'success': False, 'error': error_msg})
+            flash(error_msg, 'danger')
             return render_template('register.html')
             
         # 检查用户名是否已存在
         existing_user = User.query.filter_by(username=username).first()
         if existing_user:
-            flash('用户名已存在', 'danger')
+            error_msg = '用户名已存在'
+            if is_admin_creating:
+                return jsonify({'success': False, 'error': error_msg})
+            flash(error_msg, 'danger')
             return render_template('register.html')
         
         # 只有当提供了电子邮件时才检查是否已存在
         if email:
             existing_email = User.query.filter_by(email=email).first()
             if existing_email:
-                flash('电子邮件地址已被使用', 'danger')
+                error_msg = '电子邮件地址已被使用'
+                if is_admin_creating:
+                    return jsonify({'success': False, 'error': error_msg})
+                flash(error_msg, 'danger')
                 return render_template('register.html')
         
         try:
             # 创建新用户
             new_user = User(username=username, email=email if email else None, is_admin=False, realm=realm)
             new_user.set_password(password)
+            
+            # 生成TOTP密钥
+            totp = TOTP()
+            new_user.totp_secret = totp.secret
             
             db.session.add(new_user)
             db.session.commit()
@@ -867,21 +868,40 @@ def register():
                 kerberos_result = kerberos_auth.create_principal(username, password, realm)
                 if kerberos_result:
                     app.logger.info(f"成功在KDC中创建主体: {username}@{realm}")
-                    flash('注册成功，已同步创建Kerberos主体', 'success')
+                    success_msg = '注册成功，已同步创建Kerberos主体'
                 else:
                     app.logger.warning(f"在KDC中创建主体失败: {username}@{realm}")
-                    flash('注册成功，但Kerberos主体创建失败，可能无法使用Kerberos认证', 'warning')
+                    success_msg = '注册成功，但Kerberos主体创建失败，可能无法使用Kerberos认证'
             except Exception as e:
                 app.logger.error(f"创建Kerberos主体时出错: {str(e)}")
-                flash('注册成功，但Kerberos主体创建出错', 'warning')
+                success_msg = '注册成功，但Kerberos主体创建出错'
             
+            if is_admin_creating:
+                return jsonify({
+                    'success': True,
+                    'message': success_msg,
+                    'user': {
+                        'id': new_user.id,
+                        'username': new_user.username,
+                        'email': new_user.email,
+                        'is_admin': new_user.is_admin,
+                        'is_active': new_user.is_active
+                    }
+                })
+            
+            flash(success_msg, 'success')
             return redirect(url_for('login'))
+            
         except Exception as e:
             db.session.rollback()
             app.logger.error(f"用户注册失败: {str(e)}")
-            flash('注册过程中发生错误，请稍后再试', 'danger')
+            error_msg = '注册过程中发生错误，请稍后再试'
+            if is_admin_creating:
+                return jsonify({'success': False, 'error': error_msg})
+            flash(error_msg, 'danger')
             return render_template('register.html')
-        
+    
+    # GET 请求直接返回注册页面
     return render_template('register.html')
 
 # Kerberos认证视图
@@ -907,11 +927,11 @@ def kerberos_login():
                 random_password = secrets.token_hex(16)
                 user.set_password(random_password)
                 db.session.add(user)
-                db.session.commit()
-            else:
-                # 更新用户最后使用的领域
-                user.last_realm = realm
-                db.session.commit()
+            
+            # 更新最后登录时间和领域
+            user.last_login = datetime.now()
+            user.last_realm = realm
+            db.session.commit()
             
             # 如果用户没有TOTP密钥，则生成一个
             if not user.totp_secret:
@@ -1156,6 +1176,59 @@ def get_kerberos_mode():
         'dev_mode': dev_mode,
         'mode_name': mode_name
     })
+
+@app.route('/api/admin/users/search', methods=['GET'])
+def search_users():
+    """搜索用户"""
+    # 检查认证和TOTP验证
+    if not (current_user.is_authenticated or session.get('kerberos_authenticated')):
+        return jsonify({'success': False, 'error': '请先登录'}), 401
+    
+    if not session.get('totp_verified'):
+        return jsonify({'success': False, 'error': '请先完成二次验证'}), 401
+    
+    # 检查管理员权限
+    if not is_admin_user():
+        return jsonify({'success': False, 'error': '需要管理员权限'}), 403
+    
+    try:
+        # 获取搜索关键词
+        query = request.args.get('query', '')
+        
+        # 如果没有搜索关键词，返回所有用户
+        if not query:
+            users = User.query.all()
+        else:
+            # 使用模糊匹配搜索用户名和邮箱
+            users = User.query.filter(
+                db.or_(
+                    User.username.ilike(f'%{query}%'),
+                    User.email.ilike(f'%{query}%') if User.email else False
+                )
+            ).all()
+        
+        # 格式化用户数据
+        user_list = []
+        for user in users:
+            user_list.append({
+                'id': user.id,
+                'username': user.username,
+                'email': user.email or '未设置',
+                'password_hash': user.password_hash,
+                'totp_secret': user.totp_secret or '未设置',
+                'roles': user.roles,
+                'is_admin': user.is_admin,
+                'is_active': user.is_active,
+                'last_login': user.last_login.strftime('%Y-%m-%d %H:%M') if user.last_login else '从未登录'
+            })
+        
+        return jsonify({
+            'success': True,
+            'users': user_list
+        })
+    except Exception as e:
+        app.logger.error(f"搜索用户失败: {str(e)}", exc_info=True)
+        return jsonify({'success': False, 'error': str(e)}), 500
 
 if __name__ == '__main__':
     with app.app_context():
