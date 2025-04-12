@@ -24,7 +24,13 @@ from kerberos_auth import KerberosAuth
 load_dotenv()
 
 # 检查必要的环境变量
-required_env_vars = ['HADOOP_HOME', 'JAVA_HOME']
+required_env_vars = [
+    'HADOOP_HOME', 
+    'JAVA_HOME',
+    'KRB5_CONFIG',
+    'KRB5_KDC_PROFILE',
+    'KERBEROS_PATH'
+]
 missing_vars = [var for var in required_env_vars if not os.getenv(var)]
 if missing_vars:
     print(f"错误: 缺少必要的环境变量: {', '.join(missing_vars)}")
@@ -34,6 +40,9 @@ if missing_vars:
 # 打印环境变量信息
 print(f"HADOOP_HOME: {os.getenv('HADOOP_HOME')}")
 print(f"JAVA_HOME: {os.getenv('JAVA_HOME')}")
+print(f"KRB5_CONFIG: {os.getenv('KRB5_CONFIG')}")
+print(f"KRB5_KDC_PROFILE: {os.getenv('KRB5_KDC_PROFILE')}")
+print(f"KERBEROS_PATH: {os.getenv('KERBEROS_PATH')}")
 
 # 配置日志
 logging.basicConfig(
@@ -69,9 +78,9 @@ hadoop_service = None
 kerberos_auth = None
 
 # Kerberos配置
-KRB5_CONFIG = '/Users/huaisang/Documents/研究生/研一（下）/kerberos/config/krb5.conf'
-KRB5_KDC_PROFILE = '/Users/huaisang/Documents/研究生/研一（下）/kerberos/config/kdc.conf'
-KDC_DB_PATH = '/Users/huaisang/Documents/研究生/研一（下）/kerberos/var/krb5kdc/principal'
+KRB5_CONFIG = os.getenv('KRB5_CONFIG')
+KRB5_KDC_PROFILE = os.getenv('KRB5_KDC_PROFILE')
+KDC_DB_PATH = os.path.join(os.path.dirname(KRB5_KDC_PROFILE), 'principal')
 
 def init_services():
     """初始化所有服务"""
@@ -110,7 +119,7 @@ def init_services():
         if not os.path.exists(KDC_DB_PATH):
             logger.info("初始化KDC数据库...")
             subprocess.run([
-                '/Users/huaisang/Homebrew/opt/krb5/sbin/kdb5_util',
+                os.path.join(os.getenv('KERBEROS_PATH'), 'kdb5_util'),
                 'create',
                 '-r', 'HADOOP.COM',
                 '-s'
@@ -122,8 +131,8 @@ def init_services():
         # 启动KDC服务
         logger.info("启动KDC服务...")
         subprocess.Popen([
-            '/Users/huaisang/Homebrew/opt/krb5/sbin/krb5kdc',
-            '-P', '/Users/huaisang/Documents/研究生/研一（下）/kerberos/var/krb5kdc/krb5kdc.pid'
+            os.path.join(os.getenv('KERBEROS_PATH'), 'krb5kdc'),
+            '-P', os.path.join(os.path.dirname(KRB5_KDC_PROFILE), 'krb5kdc.pid')
         ], env={
             'KRB5_CONFIG': KRB5_CONFIG,
             'KRB5_KDC_PROFILE': KRB5_KDC_PROFILE
@@ -132,7 +141,7 @@ def init_services():
         # 启动kadmin服务
         logger.info("启动kadmin服务...")
         subprocess.Popen([
-            '/Users/huaisang/Homebrew/opt/krb5/sbin/kadmind',
+            os.path.join(os.getenv('KERBEROS_PATH'), 'kadmind'),
             '-nofork'
         ], env={
             'KRB5_CONFIG': KRB5_CONFIG,
@@ -660,8 +669,9 @@ def get_users():
         for user in users:
             user_list.append({
                 'username': user.username,
-                'is_admin': user.is_admin,
+                'roles': user.roles,
                 'is_active': user.is_active,
+                'totp_enabled': bool(user.totp_secret),
                 'last_login': user.last_login.strftime('%Y-%m-%d %H:%M:%S') if user.last_login else None
             })
         return jsonify({'success': True, 'users': user_list})
@@ -687,6 +697,7 @@ def create_user():
         data = request.get_json()
         username = data.get('username')
         password = data.get('password')
+        roles = data.get('roles', [])
         
         if not username or not password:
             return jsonify({'success': False, 'error': '用户名和密码不能为空'}), 400
@@ -696,6 +707,7 @@ def create_user():
             
         user = User(username=username)
         user.set_password(password)
+        user.roles = roles
         db.session.add(user)
         db.session.commit()
         
@@ -725,8 +737,8 @@ def delete_user(username):
             return jsonify({'success': False, 'error': '用户不存在'}), 404
             
         # 防止删除最后一个管理员账户
-        if user.is_admin:
-            admin_count = User.query.filter_by(is_admin=True).count()
+        if user.has_role('admin'):
+            admin_count = User.query.filter(User.roles.contains('admin')).count()
             if admin_count <= 1:
                 return jsonify({'success': False, 'error': '不能删除唯一的管理员账户'}), 400
         
