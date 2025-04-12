@@ -607,9 +607,13 @@ def dashboard():
         session['is_admin'] = is_admin
         
         # 计算票据时间
-        login_time = datetime.fromisoformat(session.get('kerberos_login_time', datetime.now().isoformat()))
-        expiry_time = datetime.fromisoformat(session.get('kerberos_expiry', 
-                                            (datetime.now() + timedelta(hours=10)).isoformat()))
+        login_time_str = session.get('kerberos_login_time', datetime.now().isoformat())
+        expiry_time_str = session.get('kerberos_expiry', 
+                                  (datetime.now() + timedelta(hours=10)).isoformat())
+        
+        # 使用strptime替代fromisoformat
+        login_time = datetime.strptime(login_time_str.split('+')[0], '%Y-%m-%dT%H:%M:%S.%f')
+        expiry_time = datetime.strptime(expiry_time_str.split('+')[0], '%Y-%m-%dT%H:%M:%S.%f')
         
         return render_template('dashboard.html',
                            username=username,
