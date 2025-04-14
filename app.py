@@ -830,28 +830,29 @@ def register():
     if request.method == 'POST':
         username = request.form.get('username')
         password = request.form.get('password')
-        confirm_password = request.form.get('confirm_password')  # 修改字段名以匹配表单
-        email = request.form.get('email', '').strip()  # 清除可能的空格
-        realm = request.form.get('realm', 'HADOOP.COM')  # 获取用户选择的领域
+        confirm_password = request.form.get('confirm_password')  # 确保与表单字段名称匹配
+        email = request.form.get('email', '').strip()
+        realm = request.form.get('realm', 'HADOOP.COM')
         
         # 检查是否是管理员在添加用户
         is_admin_creating = current_user.is_authenticated and current_user.is_admin
         
-        # 简单表单验证
+        # 表单验证
         if not username or not password:
             error_msg = '用户名和密码不能为空'
             if is_admin_creating:
                 return jsonify({'success': False, 'error': error_msg})
             flash(error_msg, 'danger')
             return render_template('register.html')
-            
+        
+        # 密码确认验证
         if password != confirm_password:
             error_msg = '两次输入的密码不一致'
             if is_admin_creating:
                 return jsonify({'success': False, 'error': error_msg})
             flash(error_msg, 'danger')
             return render_template('register.html')
-            
+        
         # 检查用户名是否已存在
         existing_user = User.query.filter_by(username=username).first()
         if existing_user:
@@ -885,16 +886,16 @@ def register():
             
             # 同时在Kerberos KDC中创建主体
             try:
-                app.logger.info(f"正在KDC中创建主体: {username}@{realm}")
+                app.logger.info("正在KDC中创建主体: {}@{}".format(username, realm))
                 kerberos_result = kerberos_auth.create_principal(username, password, realm)
                 if kerberos_result:
-                    app.logger.info(f"成功在KDC中创建主体: {username}@{realm}")
+                    app.logger.info("成功在KDC中创建主体: {}@{}".format(username, realm))
                     success_msg = '注册成功，已同步创建Kerberos主体'
                 else:
-                    app.logger.warning(f"在KDC中创建主体失败: {username}@{realm}")
+                    app.logger.warning("在KDC中创建主体失败: {}@{}".format(username, realm))
                     success_msg = '注册成功，但Kerberos主体创建失败，可能无法使用Kerberos认证'
             except Exception as e:
-                app.logger.error(f"创建Kerberos主体时出错: {str(e)}")
+                app.logger.error("创建Kerberos主体时出错: {}".format(str(e)))
                 success_msg = '注册成功，但Kerberos主体创建出错'
             
             if is_admin_creating:
@@ -915,7 +916,7 @@ def register():
             
         except Exception as e:
             db.session.rollback()
-            app.logger.error(f"用户注册失败: {str(e)}")
+            app.logger.error("用户注册失败: {}".format(str(e)))
             error_msg = '注册过程中发生错误，请稍后再试'
             if is_admin_creating:
                 return jsonify({'success': False, 'error': error_msg})
