@@ -29,7 +29,9 @@ required_env_vars = [
     'JAVA_HOME',
     'KRB5_CONFIG',
     'KRB5_KDC_PROFILE',
-    'KERBEROS_PATH'
+    'KRB5_UTIL_PATH',
+    'KRB5KDC_PATH',
+    'KADMIND_PATH'
 ]
 missing_vars = [var for var in required_env_vars if not os.getenv(var)]
 if missing_vars:
@@ -42,7 +44,9 @@ print(f"HADOOP_HOME: {os.getenv('HADOOP_HOME')}")
 print(f"JAVA_HOME: {os.getenv('JAVA_HOME')}")
 print(f"KRB5_CONFIG: {os.getenv('KRB5_CONFIG')}")
 print(f"KRB5_KDC_PROFILE: {os.getenv('KRB5_KDC_PROFILE')}")
-print(f"KERBEROS_PATH: {os.getenv('KERBEROS_PATH')}")
+print(f"KRB5_UTIL_PATH: {os.getenv('KRB5_UTIL_PATH')}")
+print(f"KRB5KDC_PATH: {os.getenv('KRB5KDC_PATH')}")
+print(f"KADMIND_PATH: {os.getenv('KADMIND_PATH')}")
 
 # 配置日志
 logging.basicConfig(
@@ -80,7 +84,7 @@ kerberos_auth = None
 # Kerberos配置
 KRB5_CONFIG = os.getenv('KRB5_CONFIG')
 KRB5_KDC_PROFILE = os.getenv('KRB5_KDC_PROFILE')
-KDC_DB_PATH = os.path.join(os.path.dirname(KRB5_KDC_PROFILE), 'principal')
+KDC_DB_PATH = os.getenv('KRB5_KDC_DB_PATH')
 
 def init_services():
     """初始化所有服务"""
@@ -119,7 +123,7 @@ def init_services():
         if not os.path.exists(KDC_DB_PATH):
             logger.info("初始化KDC数据库...")
             subprocess.run([
-                os.path.join(os.getenv('KERBEROS_PATH'), 'kdb5_util'),
+                os.getenv('KRB5_UTIL_PATH'),
                 'create',
                 '-r', 'HADOOP.COM',
                 '-s'
@@ -131,7 +135,7 @@ def init_services():
         # 启动KDC服务
         logger.info("启动KDC服务...")
         subprocess.Popen([
-            os.path.join(os.getenv('KERBEROS_PATH'), 'krb5kdc'),
+            os.getenv('KRB5KDC_PATH'),
             '-P', os.path.join(os.path.dirname(KRB5_KDC_PROFILE), 'krb5kdc.pid')
         ], env={
             'KRB5_CONFIG': KRB5_CONFIG,
@@ -141,7 +145,7 @@ def init_services():
         # 启动kadmin服务
         logger.info("启动kadmin服务...")
         subprocess.Popen([
-            os.path.join(os.getenv('KERBEROS_PATH'), 'kadmind'),
+            os.getenv('KADMIND_PATH'),
             '-nofork'
         ], env={
             'KRB5_CONFIG': KRB5_CONFIG,
