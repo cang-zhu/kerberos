@@ -405,7 +405,7 @@ class KerberosAuth:
                 full_principal = principal
 
             # 使用kadmin.local创建主体
-            cmd = [os.getenv('KADMIND_PATH'), '-q', f'addprinc -pw {password} {full_principal}']
+            cmd = ['kadmin.local', '-q', f'addprinc -pw {password} {full_principal}']
             process = subprocess.Popen(
                 cmd,
                 stdout=subprocess.PIPE,
@@ -418,11 +418,11 @@ class KerberosAuth:
             output = stdout.decode()
             
             # 检查是否创建成功
-            if "Principal" in output and "created" in output:
+            if process.returncode == 0:
                 self.logger.info(f"成功创建主体: {full_principal}")
                 return True
             else:
-                self.logger.error(f"创建主体失败: {output}")
+                self.logger.error(f"创建主体失败: {output}, {stderr.decode()}")
                 return False
                 
         except Exception as e:
