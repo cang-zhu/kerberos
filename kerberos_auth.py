@@ -404,6 +404,21 @@ class KerberosAuth:
             else:
                 full_principal = principal
 
+            # 首先检查主体是否已存在
+            check_cmd = ['kadmin.local', '-q', f'getprinc {full_principal}']
+            check_process = subprocess.Popen(
+                check_cmd,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                env=self.env
+            )
+            check_out, check_err = check_process.communicate()
+            
+            # 如果主体已存在，返回成功
+            if "Principal:" in check_out.decode():
+                self.logger.info(f"主体已存在: {full_principal}")
+                return True
+
             # 使用sudo执行kadmin.local创建主体
             cmd = ['sudo', 'kadmin.local', '-q', f'addprinc -pw {password} {full_principal}']
             
@@ -439,7 +454,7 @@ class KerberosAuth:
             error = stderr.decode()
             
             # 检查是否创建成功
-            if process.returncode == 0:
+            if process.returncode == 0 or "Principal" in output and "created" in output:
                 self.logger.info(f"成功创建主体: {full_principal}")
                 return True
             else:
@@ -447,6 +462,9 @@ class KerberosAuth:
                 # 如果是权限问题，给出更明确的提示
                 if "Permission denied" in error or "权限被拒绝" in error:
                     self.logger.error("执行kadmin.local需要root权限，请确保当前用户有sudo权限或直接以root用户运行")
+                elif "Already exists" in error or "已经存在" in error:
+                    self.logger.info(f"主体已存在: {full_principal}")
+                    return True
                 return False
                 
         except Exception as e:
