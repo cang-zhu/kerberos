@@ -404,25 +404,49 @@ class KerberosAuth:
             else:
                 full_principal = principal
 
-            # 使用kadmin.local创建主体
-            cmd = ['kadmin.local', '-q', f'addprinc -pw {password} {full_principal}']
-            process = subprocess.Popen(
-                cmd,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-                env=self.env
-            )
+            # 使用sudo执行kadmin.local创建主体
+            cmd = ['sudo', 'kadmin.local', '-q', f'addprinc -pw {password} {full_principal}']
+            
+            # 在开发模式下，如果sudo不可用，尝试直接执行
+            if self.dev_mode:
+                try:
+                    process = subprocess.Popen(
+                        cmd,
+                        stdout=subprocess.PIPE,
+                        stderr=subprocess.PIPE,
+                        env=self.env
+                    )
+                except:
+                    self.logger.warning("sudo执行失败，尝试直接执行kadmin.local")
+                    cmd = ['kadmin.local', '-q', f'addprinc -pw {password} {full_principal}']
+                    process = subprocess.Popen(
+                        cmd,
+                        stdout=subprocess.PIPE,
+                        stderr=subprocess.PIPE,
+                        env=self.env
+                    )
+            else:
+                process = subprocess.Popen(
+                    cmd,
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.PIPE,
+                    env=self.env
+                )
             
             # 获取输出
             stdout, stderr = process.communicate()
             output = stdout.decode()
+            error = stderr.decode()
             
             # 检查是否创建成功
             if process.returncode == 0:
                 self.logger.info(f"成功创建主体: {full_principal}")
                 return True
             else:
-                self.logger.error(f"创建主体失败: {output}, {stderr.decode()}")
+                self.logger.error(f"创建主体失败: {output}, {error}")
+                # 如果是权限问题，给出更明确的提示
+                if "Permission denied" in error or "权限被拒绝" in error:
+                    self.logger.error("执行kadmin.local需要root权限，请确保当前用户有sudo权限或直接以root用户运行")
                 return False
                 
         except Exception as e:
