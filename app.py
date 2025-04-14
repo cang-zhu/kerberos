@@ -294,41 +294,42 @@ def load_user(user_id):
 
 def init_db():
     """初始化数据库"""
-    logger.info(f"数据库路径: {db_path}")
-    logger.info(f"数据库URI: {app.config['SQLALCHEMY_DATABASE_URI']}")
+    logger.info("数据库路径: {}".format(db_path))
+    logger.info("数据库URI: {}".format(app.config['SQLALCHEMY_DATABASE_URI']))
     
     try:
         # 确保包含数据库的目录存在
         db_dir = os.path.dirname(db_path)
         if not os.path.exists(db_dir) and db_dir:
             os.makedirs(db_dir)
-            logger.info(f"创建数据库目录: {db_dir}")
-            
-        # 只在数据库文件不存在时初始化
-        if not os.path.exists(db_path):
-            logger.info(f"数据库文件不存在，创建新数据库: {db_path}")
-            db.create_all()
-            logger.info("创建数据库表成功")
-            
-            # 检查是否存在管理员用户
-            admin = User.query.filter_by(username='admin').first()
-            if not admin:
-                admin = User(username='admin', is_admin=True)
-                admin.set_password('admin123')
-                admin.add_role('admin')
-                db.session.add(admin)
-                db.session.commit()
-                logger.info("创建管理员用户成功")
-            else:
-                logger.info("管理员用户已存在")
+            logger.info("创建数据库目录: {}".format(db_dir))
+        
+        # 创建所有表
+        db.create_all()
+        
+        # 检查是否需要添加 is_active 列
+        with app.app_context():
+            inspector = db.inspect(db.engine)
+            columns = [col['name'] for col in inspector.get_columns('users')]
+            if 'is_active' not in columns:
+                logger.info("添加 is_active 列到 users 表")
+                db.engine.execute('ALTER TABLE users ADD COLUMN is_active BOOLEAN DEFAULT 1')
+        
+        # 检查是否存在管理员用户
+        admin = User.query.filter_by(username='admin').first()
+        if not admin:
+            admin = User(username='admin', is_admin=True)
+            admin.set_password('admin123')
+            admin.add_role('admin')
+            db.session.add(admin)
+            db.session.commit()
+            logger.info("创建管理员用户成功")
         else:
-            logger.info(f"使用现有数据库文件: {db_path}")
-            # 确保数据库表结构是最新的
-            db.create_all()
+            logger.info("管理员用户已存在")
         
         return True
     except Exception as e:
-        logger.error(f"数据库初始化失败: {str(e)}")
+        logger.error("数据库初始化失败: {}".format(str(e)))
         return False
 
 # 装饰器：需要 TOTP 验证
@@ -609,9 +610,13 @@ def dashboard():
         session['is_admin'] = is_admin
         
         # 计算票据时间
-        login_time = datetime.fromisoformat(session.get('kerberos_login_time', datetime.now().isoformat()))
-        expiry_time = datetime.fromisoformat(session.get('kerberos_expiry', 
-                                            (datetime.now() + timedelta(hours=10)).isoformat()))
+        try:
+            login_time = datetime.strptime(session.get('kerberos_login_time', now.strftime('%Y-%m-%d %H:%M:%S')), '%Y-%m-%d %H:%M:%S')
+            expiry_time = datetime.strptime(session.get('kerberos_expiry', (now + timedelta(hours=10)).strftime('%Y-%m-%d %H:%M:%S')), '%Y-%m-%d %H:%M:%S')
+        except ValueError:
+            # 如果解析失败，使用当前时间
+            login_time = now
+            expiry_time = now + timedelta(hours=10)
         
         return render_template('dashboard.html',
                            username=username,
@@ -956,10 +961,11 @@ def kerberos_login():
                 db.session.commit()
             
             # 临时存储Kerberos认证信息
+            now = datetime.now()
             session['temp_kerberos_authenticated'] = True
-            session['temp_kerberos_principal'] = f"{principal}@{realm}" if '@' not in principal else principal
-            session['temp_kerberos_login_time'] = datetime.now().isoformat()
-            session['temp_kerberos_expiry'] = (datetime.now() + timedelta(hours=10)).isoformat()
+            session['temp_kerberos_principal'] = "{}@{}".format(principal, realm) if '@' not in principal else principal
+            session['temp_kerberos_login_time'] = now.strftime('%Y-%m-%d %H:%M:%S')
+            session['temp_kerberos_expiry'] = (now + timedelta(hours=10)).strftime('%Y-%m-%d %H:%M:%S')
             session['temp_kerberos_realm'] = realm  # 添加领域到会话
             
             # 设置用户ID，以便在TOTP验证时使用
@@ -1016,10 +1022,10 @@ def get_service_status():
             username = current_user.username
             
         status = manager.check_all_services(username)
-        app.logger.info(f"服务状态: {status}")
+        app.logger.info("服务状态: {}".format(status))
         return jsonify({'success': True, 'status': status})
     except Exception as e:
-        app.logger.error(f"获取服务状态失败: {str(e)}", exc_info=True)
+        app.logger.error("获取服务状态失败: {}".format(str(e)), exc_info=True)
         return jsonify({'success': False, 'error': str(e)}), 500
 
 @app.route('/api/service/start/<service>', methods=['POST'])
