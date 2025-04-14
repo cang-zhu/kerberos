@@ -830,9 +830,17 @@ def register():
     if request.method == 'POST':
         username = request.form.get('username')
         password = request.form.get('password')
-        confirm_password = request.form.get('confirm_password')  # 确保与表单字段名称匹配
+        confirm_password = request.form.get('confirm_password')
         email = request.form.get('email', '').strip()
         realm = request.form.get('realm', 'HADOOP.COM')
+        
+        # 添加调试日志
+        app.logger.info("注册表单数据:")
+        app.logger.info(f"用户名: {username}")
+        app.logger.info(f"密码长度: {len(password) if password else 0}")
+        app.logger.info(f"确认密码长度: {len(confirm_password) if confirm_password else 0}")
+        app.logger.info(f"邮箱: {email}")
+        app.logger.info(f"领域: {realm}")
         
         # 检查是否是管理员在添加用户
         is_admin_creating = current_user.is_authenticated and current_user.is_admin
@@ -840,6 +848,7 @@ def register():
         # 表单验证
         if not username or not password:
             error_msg = '用户名和密码不能为空'
+            app.logger.warning(f"注册失败: {error_msg}")
             if is_admin_creating:
                 return jsonify({'success': False, 'error': error_msg})
             flash(error_msg, 'danger')
@@ -848,6 +857,8 @@ def register():
         # 密码确认验证
         if password != confirm_password:
             error_msg = '两次输入的密码不一致'
+            app.logger.warning(f"注册失败: {error_msg}")
+            app.logger.debug(f"密码: {password}, 确认密码: {confirm_password}")
             if is_admin_creating:
                 return jsonify({'success': False, 'error': error_msg})
             flash(error_msg, 'danger')
@@ -857,6 +868,7 @@ def register():
         existing_user = User.query.filter_by(username=username).first()
         if existing_user:
             error_msg = '用户名已存在'
+            app.logger.warning(f"注册失败: {error_msg}")
             if is_admin_creating:
                 return jsonify({'success': False, 'error': error_msg})
             flash(error_msg, 'danger')
@@ -867,6 +879,7 @@ def register():
             existing_email = User.query.filter_by(email=email).first()
             if existing_email:
                 error_msg = '电子邮件地址已被使用'
+                app.logger.warning(f"注册失败: {error_msg}")
                 if is_admin_creating:
                     return jsonify({'success': False, 'error': error_msg})
                 flash(error_msg, 'danger')
