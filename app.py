@@ -976,7 +976,7 @@ def register():
     if request.method == 'POST':
         username = request.form.get('username')
         password = request.form.get('password')
-        confirm_password = request.form.get('confirmPassword')
+        confirm_password = request.form.get('confirm_password')  # 修改字段名
         email = request.form.get('email', '').strip()  # 清除可能的空格
         realm = request.form.get('realm', 'HADOOP.COM')  # 获取用户选择的领域
         
