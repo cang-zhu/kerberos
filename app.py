@@ -90,6 +90,41 @@ KADMIND_PATH = os.getenv('KADMIND_PATH', 'kadmind')
 # PID文件路径
 KRB5KDC_PID_PATH = os.getenv('KRB5KDC_PID_PATH', os.path.join(os.path.dirname(__file__), 'var', 'krb5kdc', 'krb5kdc.pid'))
 
+def find_kerberos_command(command_name):
+    """查找Kerberos命令的完整路径
+    
+    Args:
+        command_name (str): 命令名称，如 'kadmin.local', 'krb5kdc' 等
+        
+    Returns:
+        str: 命令的完整路径，如果找不到则返回None
+    """
+    # 常见的命令路径
+    common_paths = [
+        '/usr/sbin',                    # CentOS/RHEL默认路径
+        '/usr/local/sbin',              # 通用Linux路径
+        '/usr/local/opt/krb5/sbin',     # macOS Homebrew安装路径
+        '/opt/krb5/sbin',               # 自定义安装路径
+        '/usr/local/bin',               # 其他可能的路径
+        '/usr/bin'
+    ]
+    
+    # 首先检查环境变量中是否有定义
+    env_var = f'KRB5_{command_name.upper()}_PATH'
+    if os.getenv(env_var):
+        cmd_path = os.getenv(env_var)
+        if os.path.exists(cmd_path):
+            return cmd_path
+    
+    # 在常见路径中查找
+    for path in common_paths:
+        cmd_path = os.path.join(path, command_name)
+        if os.path.exists(cmd_path):
+            return cmd_path
+    
+    # 如果都找不到，返回None
+    return None
+
 def init_services():
     """初始化所有服务"""
     global hadoop_service, kerberos_auth
@@ -153,12 +188,10 @@ def init_services():
 
 def create_kdc_database():
     try:
-        # 检查kdb5_util命令是否存在
-        kdb5_util_cmd = '/usr/local/opt/krb5/sbin/kdb5_util'
-        if not os.path.exists(kdb5_util_cmd):
-            kdb5_util_cmd = '/usr/sbin/kdb5_util'  # 尝试系统默认路径
-            if not os.path.exists(kdb5_util_cmd):
-                raise FileNotFoundError("找不到kdb5_util命令")
+        # 查找kdb5_util命令
+        kdb5_util_cmd = find_kerberos_command('kdb5_util')
+        if not kdb5_util_cmd:
+            raise FileNotFoundError("找不到kdb5_util命令，请确保已安装Kerberos")
         
         command = [
             kdb5_util_cmd,
@@ -188,12 +221,10 @@ def create_kdc_database():
 
 def start_kdc_server():
     try:
-        # 检查krb5kdc命令是否存在
-        krb5kdc_cmd = '/usr/local/opt/krb5/sbin/krb5kdc'
-        if not os.path.exists(krb5kdc_cmd):
-            krb5kdc_cmd = '/usr/sbin/krb5kdc'  # 尝试系统默认路径
-            if not os.path.exists(krb5kdc_cmd):
-                raise FileNotFoundError("找不到krb5kdc命令")
+        # 查找krb5kdc命令
+        krb5kdc_cmd = find_kerberos_command('krb5kdc')
+        if not krb5kdc_cmd:
+            raise FileNotFoundError("找不到krb5kdc命令，请确保已安装Kerberos")
         
         env = os.environ.copy()
         env.update({
@@ -209,12 +240,10 @@ def start_kdc_server():
 
 def start_kadmin_server():
     try:
-        # 检查kadmind命令是否存在
-        kadmind_cmd = '/usr/local/opt/krb5/sbin/kadmind'
-        if not os.path.exists(kadmind_cmd):
-            kadmind_cmd = '/usr/sbin/kadmind'  # 尝试系统默认路径
-            if not os.path.exists(kadmind_cmd):
-                raise FileNotFoundError("找不到kadmind命令")
+        # 查找kadmind命令
+        kadmind_cmd = find_kerberos_command('kadmind')
+        if not kadmind_cmd:
+            raise FileNotFoundError("找不到kadmind命令，请确保已安装Kerberos")
         
         env = os.environ.copy()
         env.update({
