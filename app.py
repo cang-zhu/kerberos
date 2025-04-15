@@ -115,6 +115,17 @@ def init_services():
     try:
         # 初始化Kerberos认证服务
         kerberos_auth = KerberosAuth()
+        
+        # 检查必要的环境变量和路径
+        if not all([KRB5_CONFIG, KRB5_KDC_PROFILE, KDC_DB_PATH]):
+            logger.error("缺少必要的Kerberos配置路径")
+            return
+            
+        # 检查配置文件是否存在
+        if not all(os.path.exists(path) for path in [KRB5_CONFIG, KRB5_KDC_PROFILE]):
+            logger.error("Kerberos配置文件不存在")
+            return
+            
         kerberos_auth.conf_file = KRB5_CONFIG
         kerberos_auth.kdc_conf = KRB5_KDC_PROFILE
         kerberos_auth.kdc_db_path = KDC_DB_PATH
@@ -142,31 +153,55 @@ def init_services():
 
 def create_kdc_database():
     try:
+        # 检查kdb5_util命令是否存在
+        kdb5_util_cmd = '/usr/local/opt/krb5/sbin/kdb5_util'
+        if not os.path.exists(kdb5_util_cmd):
+            kdb5_util_cmd = '/usr/sbin/kdb5_util'  # 尝试系统默认路径
+            if not os.path.exists(kdb5_util_cmd):
+                raise FileNotFoundError("找不到kdb5_util命令")
+        
         command = [
-            'kdb5_util',
+            kdb5_util_cmd,
             'create',
             '-r', 'HADOOP.COM',
             '-s',
             '-P', os.getenv('KRB5_MASTER_PASSWORD', 'your_master_password')
         ]
-        subprocess.run(command, env={
+        
+        env = os.environ.copy()
+        env.update({
             'KRB5_CONFIG': KRB5_CONFIG,
             'KRB5_KDC_PROFILE': KRB5_KDC_PROFILE
         })
-        logger.info("KDC数据库创建成功")
+        
+        result = subprocess.run(command, env=env, capture_output=True, text=True)
+        
+        if result.returncode == 0:
+            logger.info("KDC数据库创建成功")
+        else:
+            logger.error(f"KDC数据库创建失败: {result.stderr}")
+            raise Exception(result.stderr)
+            
     except Exception as e:
         logger.error(f"创建KDC数据库时出错: {str(e)}")
         raise
 
 def start_kdc_server():
     try:
-        command = [
-            'krb5kdc'
-        ]
-        subprocess.Popen(command, env={
+        # 检查krb5kdc命令是否存在
+        krb5kdc_cmd = '/usr/local/opt/krb5/sbin/krb5kdc'
+        if not os.path.exists(krb5kdc_cmd):
+            krb5kdc_cmd = '/usr/sbin/krb5kdc'  # 尝试系统默认路径
+            if not os.path.exists(krb5kdc_cmd):
+                raise FileNotFoundError("找不到krb5kdc命令")
+        
+        env = os.environ.copy()
+        env.update({
             'KRB5_CONFIG': KRB5_CONFIG,
             'KRB5_KDC_PROFILE': KRB5_KDC_PROFILE
         })
+        
+        process = subprocess.Popen([krb5kdc_cmd], env=env)
         logger.info("KDC服务启动成功")
     except Exception as e:
         logger.error(f"启动KDC服务时出错: {str(e)}")
@@ -174,14 +209,20 @@ def start_kdc_server():
 
 def start_kadmin_server():
     try:
-        command = [
-            'kadmind',
-            '-nofork'  # 在前台运行，便于调试
-        ]
-        subprocess.Popen(command, env={
+        # 检查kadmind命令是否存在
+        kadmind_cmd = '/usr/local/opt/krb5/sbin/kadmind'
+        if not os.path.exists(kadmind_cmd):
+            kadmind_cmd = '/usr/sbin/kadmind'  # 尝试系统默认路径
+            if not os.path.exists(kadmind_cmd):
+                raise FileNotFoundError("找不到kadmind命令")
+        
+        env = os.environ.copy()
+        env.update({
             'KRB5_CONFIG': KRB5_CONFIG,
             'KRB5_KDC_PROFILE': KRB5_KDC_PROFILE
         })
+        
+        process = subprocess.Popen([kadmind_cmd, '-nofork'], env=env)
         logger.info("kadmin服务启动成功")
     except Exception as e:
         logger.error(f"启动kadmin服务时出错: {str(e)}")
