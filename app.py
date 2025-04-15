@@ -24,15 +24,7 @@ from kerberos_auth import KerberosAuth
 load_dotenv()
 
 # 检查必要的环境变量
-required_env_vars = [
-    'HADOOP_HOME', 
-    'JAVA_HOME',
-    'KRB5_CONFIG',
-    'KRB5_KDC_PROFILE',
-    'KRB5_UTIL_PATH',
-    'KRB5KDC_PATH',
-    'KADMIND_PATH'
-]
+required_env_vars = ['HADOOP_HOME', 'JAVA_HOME']
 missing_vars = [var for var in required_env_vars if not os.getenv(var)]
 if missing_vars:
     print(f"错误: 缺少必要的环境变量: {', '.join(missing_vars)}")
@@ -42,11 +34,6 @@ if missing_vars:
 # 打印环境变量信息
 print(f"HADOOP_HOME: {os.getenv('HADOOP_HOME')}")
 print(f"JAVA_HOME: {os.getenv('JAVA_HOME')}")
-print(f"KRB5_CONFIG: {os.getenv('KRB5_CONFIG')}")
-print(f"KRB5_KDC_PROFILE: {os.getenv('KRB5_KDC_PROFILE')}")
-print(f"KRB5_UTIL_PATH: {os.getenv('KRB5_UTIL_PATH')}")
-print(f"KRB5KDC_PATH: {os.getenv('KRB5KDC_PATH')}")
-print(f"KADMIND_PATH: {os.getenv('KADMIND_PATH')}")
 
 # 配置日志
 logging.basicConfig(
@@ -81,10 +68,18 @@ login_manager.login_message = '请先登录'
 hadoop_service = None
 kerberos_auth = None
 
-# Kerberos配置
-KRB5_CONFIG = os.getenv('KRB5_CONFIG')
-KRB5_KDC_PROFILE = os.getenv('KRB5_KDC_PROFILE')
-KDC_DB_PATH = os.getenv('KRB5_KDC_DB_PATH')
+# 配置文件路径
+KRB5_CONFIG = os.getenv('KRB5_CONFIG', os.path.join(os.path.dirname(__file__), 'config', 'krb5.conf'))
+KRB5_KDC_PROFILE = os.getenv('KRB5_KDC_PROFILE', os.path.join(os.path.dirname(__file__), 'config', 'kdc.conf'))
+KDC_DB_PATH = os.getenv('KDC_DB_PATH', os.path.join(os.path.dirname(__file__), 'var', 'krb5kdc', 'principal'))
+
+# Kerberos 命令路径
+KRB5_UTIL_PATH = os.getenv('KRB5_UTIL_PATH', 'kdb5_util')
+KRB5KDC_PATH = os.getenv('KRB5KDC_PATH', 'krb5kdc')
+KADMIND_PATH = os.getenv('KADMIND_PATH', 'kadmind')
+
+# PID文件路径
+KRB5KDC_PID_PATH = os.getenv('KRB5KDC_PID_PATH', os.path.join(os.path.dirname(__file__), 'var', 'krb5kdc', 'krb5kdc.pid'))
 
 def init_services():
     """初始化所有服务"""
@@ -122,39 +117,67 @@ def init_services():
         # 检查并启动KDC服务
         if not os.path.exists(KDC_DB_PATH):
             logger.info("初始化KDC数据库...")
-            subprocess.run([
-                os.getenv('KRB5_UTIL_PATH'),
-                'create',
-                '-r', 'HADOOP.COM',
-                '-s'
-            ], env={
-                'KRB5_CONFIG': KRB5_CONFIG,
-                'KRB5_KDC_PROFILE': KRB5_KDC_PROFILE
-            })
+            create_kdc_database()
         
         # 启动KDC服务
         logger.info("启动KDC服务...")
-        subprocess.Popen([
-            os.getenv('KRB5KDC_PATH'),
-            '-P', os.path.join(os.path.dirname(KRB5_KDC_PROFILE), 'krb5kdc.pid')
-        ], env={
-            'KRB5_CONFIG': KRB5_CONFIG,
-            'KRB5_KDC_PROFILE': KRB5_KDC_PROFILE
-        })
+        start_kdc_server()
         
         # 启动kadmin服务
         logger.info("启动kadmin服务...")
-        subprocess.Popen([
-            os.getenv('KADMIND_PATH'),
-            '-nofork'
-        ], env={
-            'KRB5_CONFIG': KRB5_CONFIG,
-            'KRB5_KDC_PROFILE': KRB5_KDC_PROFILE
-        })
+        start_kadmin_server()
         
         logger.info("Kerberos服务初始化完成")
     except Exception as e:
         logger.error(f"初始化Kerberos服务时出错: {str(e)}")
+
+def create_kdc_database():
+    try:
+        command = [
+            KRB5_UTIL_PATH,
+            'create',
+            '-r', 'HADOOP.COM',
+            '-s',
+            '-P', os.getenv('KRB5_MASTER_PASSWORD', 'your_master_password')
+        ]
+        subprocess.run(command, env={
+            'KRB5_CONFIG': KRB5_CONFIG,
+            'KRB5_KDC_PROFILE': KRB5_KDC_PROFILE
+        })
+        logger.info("KDC数据库创建成功")
+    except Exception as e:
+        logger.error(f"创建KDC数据库时出错: {str(e)}")
+        raise
+
+def start_kdc_server():
+    try:
+        command = [
+            KRB5KDC_PATH,
+            '-P', KRB5KDC_PID_PATH
+        ]
+        subprocess.Popen(command, env={
+            'KRB5_CONFIG': KRB5_CONFIG,
+            'KRB5_KDC_PROFILE': KRB5_KDC_PROFILE
+        })
+        logger.info("KDC服务启动成功")
+    except Exception as e:
+        logger.error(f"启动KDC服务时出错: {str(e)}")
+        raise
+
+def start_kadmin_server():
+    try:
+        command = [
+            KADMIND_PATH,
+            '-nofork'  # 在前台运行，便于调试
+        ]
+        subprocess.Popen(command, env={
+            'KRB5_CONFIG': KRB5_CONFIG,
+            'KRB5_KDC_PROFILE': KRB5_KDC_PROFILE
+        })
+        logger.info("kadmin服务启动成功")
+    except Exception as e:
+        logger.error(f"启动kadmin服务时出错: {str(e)}")
+        raise
 
 # 替换before_first_request装饰器
 with app.app_context():
@@ -294,42 +317,41 @@ def load_user(user_id):
 
 def init_db():
     """初始化数据库"""
-    logger.info("数据库路径: {}".format(db_path))
-    logger.info("数据库URI: {}".format(app.config['SQLALCHEMY_DATABASE_URI']))
+    logger.info(f"数据库路径: {db_path}")
+    logger.info(f"数据库URI: {app.config['SQLALCHEMY_DATABASE_URI']}")
     
     try:
         # 确保包含数据库的目录存在
         db_dir = os.path.dirname(db_path)
         if not os.path.exists(db_dir) and db_dir:
             os.makedirs(db_dir)
-            logger.info("创建数据库目录: {}".format(db_dir))
-        
-        # 创建所有表
-        db.create_all()
-        
-        # 检查是否需要添加 is_active 列
-        with app.app_context():
-            inspector = db.inspect(db.engine)
-            columns = [col['name'] for col in inspector.get_columns('users')]
-            if 'is_active' not in columns:
-                logger.info("添加 is_active 列到 users 表")
-                db.engine.execute('ALTER TABLE users ADD COLUMN is_active BOOLEAN DEFAULT 1')
-        
-        # 检查是否存在管理员用户
-        admin = User.query.filter_by(username='admin').first()
-        if not admin:
-            admin = User(username='admin', is_admin=True)
-            admin.set_password('admin123')
-            admin.add_role('admin')
-            db.session.add(admin)
-            db.session.commit()
-            logger.info("创建管理员用户成功")
+            logger.info(f"创建数据库目录: {db_dir}")
+            
+        # 只在数据库文件不存在时初始化
+        if not os.path.exists(db_path):
+            logger.info(f"数据库文件不存在，创建新数据库: {db_path}")
+            db.create_all()
+            logger.info("创建数据库表成功")
+            
+            # 检查是否存在管理员用户
+            admin = User.query.filter_by(username='admin').first()
+            if not admin:
+                admin = User(username='admin', is_admin=True)
+                admin.set_password('admin123')
+                admin.add_role('admin')
+                db.session.add(admin)
+                db.session.commit()
+                logger.info("创建管理员用户成功")
+            else:
+                logger.info("管理员用户已存在")
         else:
-            logger.info("管理员用户已存在")
+            logger.info(f"使用现有数据库文件: {db_path}")
+            # 确保数据库表结构是最新的
+            db.create_all()
         
         return True
     except Exception as e:
-        logger.error("数据库初始化失败: {}".format(str(e)))
+        logger.error(f"数据库初始化失败: {str(e)}")
         return False
 
 # 装饰器：需要 TOTP 验证
@@ -610,13 +632,9 @@ def dashboard():
         session['is_admin'] = is_admin
         
         # 计算票据时间
-        try:
-            login_time = datetime.strptime(session.get('kerberos_login_time', now.strftime('%Y-%m-%d %H:%M:%S')), '%Y-%m-%d %H:%M:%S')
-            expiry_time = datetime.strptime(session.get('kerberos_expiry', (now + timedelta(hours=10)).strftime('%Y-%m-%d %H:%M:%S')), '%Y-%m-%d %H:%M:%S')
-        except ValueError:
-            # 如果解析失败，使用当前时间
-            login_time = now
-            expiry_time = now + timedelta(hours=10)
+        login_time = datetime.fromisoformat(session.get('kerberos_login_time', datetime.now().isoformat()))
+        expiry_time = datetime.fromisoformat(session.get('kerberos_expiry', 
+                                            (datetime.now() + timedelta(hours=10)).isoformat()))
         
         return render_template('dashboard.html',
                            username=username,
@@ -830,45 +848,32 @@ def register():
     if request.method == 'POST':
         username = request.form.get('username')
         password = request.form.get('password')
-        confirm_password = request.form.get('confirm_password')
-        email = request.form.get('email', '').strip()
-        realm = request.form.get('realm', 'HADOOP.COM')
-        
-        # 添加调试日志
-        app.logger.info("注册表单数据:")
-        app.logger.info(f"用户名: {username}")
-        app.logger.info(f"密码长度: {len(password) if password else 0}")
-        app.logger.info(f"确认密码长度: {len(confirm_password) if confirm_password else 0}")
-        app.logger.info(f"邮箱: {email}")
-        app.logger.info(f"领域: {realm}")
+        confirm_password = request.form.get('confirmPassword')
+        email = request.form.get('email', '').strip()  # 清除可能的空格
+        realm = request.form.get('realm', 'HADOOP.COM')  # 获取用户选择的领域
         
         # 检查是否是管理员在添加用户
         is_admin_creating = current_user.is_authenticated and current_user.is_admin
         
-        # 表单验证
+        # 简单表单验证
         if not username or not password:
             error_msg = '用户名和密码不能为空'
-            app.logger.warning(f"注册失败: {error_msg}")
             if is_admin_creating:
                 return jsonify({'success': False, 'error': error_msg})
             flash(error_msg, 'danger')
             return render_template('register.html')
-        
-        # 密码确认验证
+            
         if password != confirm_password:
             error_msg = '两次输入的密码不一致'
-            app.logger.warning(f"注册失败: {error_msg}")
-            app.logger.debug(f"密码: {password}, 确认密码: {confirm_password}")
             if is_admin_creating:
                 return jsonify({'success': False, 'error': error_msg})
             flash(error_msg, 'danger')
             return render_template('register.html')
-        
+            
         # 检查用户名是否已存在
         existing_user = User.query.filter_by(username=username).first()
         if existing_user:
             error_msg = '用户名已存在'
-            app.logger.warning(f"注册失败: {error_msg}")
             if is_admin_creating:
                 return jsonify({'success': False, 'error': error_msg})
             flash(error_msg, 'danger')
@@ -879,7 +884,6 @@ def register():
             existing_email = User.query.filter_by(email=email).first()
             if existing_email:
                 error_msg = '电子邮件地址已被使用'
-                app.logger.warning(f"注册失败: {error_msg}")
                 if is_admin_creating:
                     return jsonify({'success': False, 'error': error_msg})
                 flash(error_msg, 'danger')
@@ -899,16 +903,16 @@ def register():
             
             # 同时在Kerberos KDC中创建主体
             try:
-                app.logger.info("正在KDC中创建主体: {}@{}".format(username, realm))
+                app.logger.info(f"正在KDC中创建主体: {username}@{realm}")
                 kerberos_result = kerberos_auth.create_principal(username, password, realm)
                 if kerberos_result:
-                    app.logger.info("成功在KDC中创建主体: {}@{}".format(username, realm))
+                    app.logger.info(f"成功在KDC中创建主体: {username}@{realm}")
                     success_msg = '注册成功，已同步创建Kerberos主体'
                 else:
-                    app.logger.warning("在KDC中创建主体失败: {}@{}".format(username, realm))
+                    app.logger.warning(f"在KDC中创建主体失败: {username}@{realm}")
                     success_msg = '注册成功，但Kerberos主体创建失败，可能无法使用Kerberos认证'
             except Exception as e:
-                app.logger.error("创建Kerberos主体时出错: {}".format(str(e)))
+                app.logger.error(f"创建Kerberos主体时出错: {str(e)}")
                 success_msg = '注册成功，但Kerberos主体创建出错'
             
             if is_admin_creating:
@@ -929,7 +933,7 @@ def register():
             
         except Exception as e:
             db.session.rollback()
-            app.logger.error("用户注册失败: {}".format(str(e)))
+            app.logger.error(f"用户注册失败: {str(e)}")
             error_msg = '注册过程中发生错误，请稍后再试'
             if is_admin_creating:
                 return jsonify({'success': False, 'error': error_msg})
@@ -975,11 +979,10 @@ def kerberos_login():
                 db.session.commit()
             
             # 临时存储Kerberos认证信息
-            now = datetime.now()
             session['temp_kerberos_authenticated'] = True
-            session['temp_kerberos_principal'] = "{}@{}".format(principal, realm) if '@' not in principal else principal
-            session['temp_kerberos_login_time'] = now.strftime('%Y-%m-%d %H:%M:%S')
-            session['temp_kerberos_expiry'] = (now + timedelta(hours=10)).strftime('%Y-%m-%d %H:%M:%S')
+            session['temp_kerberos_principal'] = f"{principal}@{realm}" if '@' not in principal else principal
+            session['temp_kerberos_login_time'] = datetime.now().isoformat()
+            session['temp_kerberos_expiry'] = (datetime.now() + timedelta(hours=10)).isoformat()
             session['temp_kerberos_realm'] = realm  # 添加领域到会话
             
             # 设置用户ID，以便在TOTP验证时使用
@@ -1036,10 +1039,10 @@ def get_service_status():
             username = current_user.username
             
         status = manager.check_all_services(username)
-        app.logger.info("服务状态: {}".format(status))
+        app.logger.info(f"服务状态: {status}")
         return jsonify({'success': True, 'status': status})
     except Exception as e:
-        app.logger.error("获取服务状态失败: {}".format(str(e)), exc_info=True)
+        app.logger.error(f"获取服务状态失败: {str(e)}", exc_info=True)
         return jsonify({'success': False, 'error': str(e)}), 500
 
 @app.route('/api/service/start/<service>', methods=['POST'])
