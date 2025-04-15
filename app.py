@@ -24,7 +24,13 @@ from kerberos_auth import KerberosAuth
 load_dotenv()
 
 # 检查必要的环境变量
-required_env_vars = ['HADOOP_HOME', 'JAVA_HOME']
+required_env_vars = [
+    'HADOOP_HOME', 
+    'JAVA_HOME',
+    'KRB5_CONFIG',
+    'KRB5_KDC_PROFILE',
+    'KRB5_KDC_DB_PATH'
+]
 missing_vars = [var for var in required_env_vars if not os.getenv(var)]
 if missing_vars:
     print(f"错误: 缺少必要的环境变量: {', '.join(missing_vars)}")
@@ -34,6 +40,9 @@ if missing_vars:
 # 打印环境变量信息
 print(f"HADOOP_HOME: {os.getenv('HADOOP_HOME')}")
 print(f"JAVA_HOME: {os.getenv('JAVA_HOME')}")
+print(f"KRB5_CONFIG: {os.getenv('KRB5_CONFIG')}")
+print(f"KRB5_KDC_PROFILE: {os.getenv('KRB5_KDC_PROFILE')}")
+print(f"KRB5_KDC_DB_PATH: {os.getenv('KRB5_KDC_DB_PATH')}")
 
 # 配置日志
 logging.basicConfig(
@@ -68,10 +77,10 @@ login_manager.login_message = '请先登录'
 hadoop_service = None
 kerberos_auth = None
 
-# 配置文件路径
-KRB5_CONFIG = os.getenv('KRB5_CONFIG', os.path.join(os.path.dirname(__file__), 'config', 'krb5.conf'))
-KRB5_KDC_PROFILE = os.getenv('KRB5_KDC_PROFILE', os.path.join(os.path.dirname(__file__), 'config', 'kdc.conf'))
-KDC_DB_PATH = os.getenv('KDC_DB_PATH', os.path.join(os.path.dirname(__file__), 'var', 'krb5kdc', 'principal'))
+# 使用环境变量中的配置
+KRB5_CONFIG = os.getenv('KRB5_CONFIG')
+KRB5_KDC_PROFILE = os.getenv('KRB5_KDC_PROFILE')
+KDC_DB_PATH = os.getenv('KRB5_KDC_DB_PATH')
 
 # Kerberos 命令路径
 KRB5_UTIL_PATH = os.getenv('KRB5_UTIL_PATH', 'kdb5_util')
