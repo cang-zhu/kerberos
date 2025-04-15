@@ -207,7 +207,14 @@ def create_kdc_database():
             'KRB5_KDC_PROFILE': KRB5_KDC_PROFILE
         })
         
-        result = subprocess.run(command, env=env, capture_output=True, text=True)
+        # 修改为兼容Python 3.6的参数
+        result = subprocess.run(
+            command,
+            env=env,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            universal_newlines=True
+        )
         
         if result.returncode == 0:
             logger.info("KDC数据库创建成功")
@@ -232,7 +239,14 @@ def start_kdc_server():
             'KRB5_KDC_PROFILE': KRB5_KDC_PROFILE
         })
         
-        process = subprocess.Popen([krb5kdc_cmd], env=env)
+        # 修改为兼容Python 3.6的参数
+        process = subprocess.Popen(
+            [krb5kdc_cmd],
+            env=env,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            universal_newlines=True
+        )
         logger.info("KDC服务启动成功")
     except Exception as e:
         logger.error(f"启动KDC服务时出错: {str(e)}")
@@ -251,7 +265,14 @@ def start_kadmin_server():
             'KRB5_KDC_PROFILE': KRB5_KDC_PROFILE
         })
         
-        process = subprocess.Popen([kadmind_cmd, '-nofork'], env=env)
+        # 修改为兼容Python 3.6的参数
+        process = subprocess.Popen(
+            [kadmind_cmd, '-nofork'],
+            env=env,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            universal_newlines=True
+        )
         logger.info("kadmin服务启动成功")
     except Exception as e:
         logger.error(f"启动kadmin服务时出错: {str(e)}")
