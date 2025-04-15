@@ -29,7 +29,7 @@ required_env_vars = [
     'JAVA_HOME',
     'KRB5_CONFIG',
     'KRB5_KDC_PROFILE',
-    'KRB5_KDC_DB_PATH'
+    'KDC_DB_PATH'
 ]
 missing_vars = [var for var in required_env_vars if not os.getenv(var)]
 if missing_vars:
@@ -42,7 +42,7 @@ print(f"HADOOP_HOME: {os.getenv('HADOOP_HOME')}")
 print(f"JAVA_HOME: {os.getenv('JAVA_HOME')}")
 print(f"KRB5_CONFIG: {os.getenv('KRB5_CONFIG')}")
 print(f"KRB5_KDC_PROFILE: {os.getenv('KRB5_KDC_PROFILE')}")
-print(f"KRB5_KDC_DB_PATH: {os.getenv('KRB5_KDC_DB_PATH')}")
+print(f"KDC_DB_PATH: {os.getenv('KDC_DB_PATH')}")
 
 # 配置日志
 logging.basicConfig(
@@ -80,7 +80,7 @@ kerberos_auth = None
 # 使用环境变量中的配置
 KRB5_CONFIG = os.getenv('KRB5_CONFIG')
 KRB5_KDC_PROFILE = os.getenv('KRB5_KDC_PROFILE')
-KDC_DB_PATH = os.getenv('KRB5_KDC_DB_PATH')
+KDC_DB_PATH = os.getenv('KDC_DB_PATH')
 
 # Kerberos 命令路径
 KRB5_UTIL_PATH = os.getenv('KRB5_UTIL_PATH', 'kdb5_util')
@@ -143,7 +143,7 @@ def init_services():
 def create_kdc_database():
     try:
         command = [
-            KRB5_UTIL_PATH,
+            'kdb5_util',
             'create',
             '-r', 'HADOOP.COM',
             '-s',
@@ -161,8 +161,7 @@ def create_kdc_database():
 def start_kdc_server():
     try:
         command = [
-            KRB5KDC_PATH,
-            '-P', KRB5KDC_PID_PATH
+            'krb5kdc'
         ]
         subprocess.Popen(command, env={
             'KRB5_CONFIG': KRB5_CONFIG,
@@ -176,7 +175,7 @@ def start_kdc_server():
 def start_kadmin_server():
     try:
         command = [
-            KADMIND_PATH,
+            'kadmind',
             '-nofork'  # 在前台运行，便于调试
         ]
         subprocess.Popen(command, env={
