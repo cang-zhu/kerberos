@@ -47,9 +47,18 @@ print(f"KDC_DB_PATH: {os.getenv('KDC_DB_PATH')}")
 # 配置日志
 logging.basicConfig(
     level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    handlers=[
+        logging.StreamHandler(),  # 输出到控制台
+        logging.FileHandler('kerberos.log', encoding='utf-8')  # 同时输出到文件
+    ]
 )
 logger = logging.getLogger(__name__)
+
+# 设置Hadoop相关日志级别为WARNING，以减少不必要的输出
+logging.getLogger('hadoop').setLevel(logging.WARNING)
+logging.getLogger('hdfs').setLevel(logging.WARNING)
+logging.getLogger('yarn').setLevel(logging.WARNING)
 
 # 数据库路径
 db_path = os.path.join(os.path.abspath(os.path.dirname(__file__)), 'app.db')
@@ -64,8 +73,8 @@ app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 app.config['SESSION_TYPE'] = 'filesystem'
 app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(minutes=30)
 
-logger.info(f"数据库路径: {db_path}")
-logger.info(f"数据库URI: {app.config['SQLALCHEMY_DATABASE_URI']}")
+logger.info("数据库路径: {}".format(db_path))
+logger.info("数据库URI: {}".format(app.config['SQLALCHEMY_DATABASE_URI']))
 
 # 初始化扩展
 db = SQLAlchemy(app)
