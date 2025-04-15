@@ -222,37 +222,64 @@ def create_kdc_database():
         if not kdb5_util_cmd:
             raise FileNotFoundError("找不到kdb5_util命令，请确保已安装Kerberos")
         
+        # 确保KDC数据库目录存在并有正确的权限
+        kdc_db_dir = os.path.dirname(KDC_DB_PATH)
+        if not os.path.exists(kdc_db_dir):
+            os.makedirs(kdc_db_dir, mode=0o700)
+            logger.info(f"创建KDC数据库目录: {kdc_db_dir}")
+        
+        # 设置环境变量
+        env = os.environ.copy()
+        env.update({
+            'KRB5_CONFIG': KRB5_CONFIG,
+            'KRB5_KDC_PROFILE': KRB5_KDC_PROFILE,
+            'KRB5_TRACE': '/dev/stdout'  # 启用详细调试输出
+        })
+        
+        # 检查数据库是否已存在
+        if os.path.exists(KDC_DB_PATH):
+            logger.info("KDC数据库已存在，跳过创建")
+            return True
+        
+        # 构建命令
+        master_password = os.getenv('KRB5_MASTER_PASSWORD', 'your_master_password')
         command = [
             kdb5_util_cmd,
             'create',
             '-r', 'HADOOP.COM',
-            '-s',
-            '-P', os.getenv('KRB5_MASTER_PASSWORD', 'your_master_password')
+            '-s'
         ]
         
-        env = os.environ.copy()
-        env.update({
-            'KRB5_CONFIG': KRB5_CONFIG,
-            'KRB5_KDC_PROFILE': KRB5_KDC_PROFILE
-        })
-        
-        # 修改为兼容Python 3.6的参数
-        result = subprocess.run(
+        # 通过管道提供master password
+        process = subprocess.Popen(
             command,
             env=env,
+            stdin=subprocess.PIPE,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             universal_newlines=True
         )
         
-        if result.returncode == 0:
+        # 输入master password两次
+        stdout, stderr = process.communicate(input=f"{master_password}\n{master_password}\n")
+        
+        if process.returncode == 0:
             logger.info("KDC数据库创建成功")
+            
+            # 设置数据库文件权限
+            for file in os.listdir(kdc_db_dir):
+                if file.startswith('K') or file.endswith('.kadm5'):
+                    file_path = os.path.join(kdc_db_dir, file)
+                    os.chmod(file_path, 0o600)
+                    logger.info(f"设置数据库文件权限: {file_path}")
+            
+            return True
         else:
-            logger.error("KDC数据库创建失败: {}".format(result.stderr))
-            raise Exception(result.stderr)
+            logger.error(f"KDC数据库创建失败: {stderr}")
+            raise Exception(stderr)
             
     except Exception as e:
-        logger.error("创建KDC数据库时出错: {}".format(str(e)))
+        logger.error(f"创建KDC数据库时出错: {str(e)}")
         raise
 
 def start_kdc_server():

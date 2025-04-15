@@ -419,34 +419,27 @@ class KerberosAuth:
                 self.logger.info(f"主体已存在: {full_principal}")
                 return True
 
-            # 使用sudo执行kadmin.local创建主体
-            cmd = ['sudo', 'kadmin.local', '-q', f'addprinc -pw {password} {full_principal}']
+            # 准备环境变量
+            env = self.env.copy()
+            env.update({
+                'KRB5_CONFIG': self.conf_file,
+                'KRB5_KDC_PROFILE': self.kdc_conf,
+                'KRB5_TRACE': '/dev/stdout'  # 启用详细调试输出
+            })
+
+            # 构建kadmin.local命令
+            cmd = [
+                'kadmin.local',
+                '-q', f'addprinc -pw {password} {full_principal}'
+            ]
             
-            # 在开发模式下，如果sudo不可用，尝试直接执行
-            if self.dev_mode:
-                try:
-                    process = subprocess.Popen(
-                        cmd,
-                        stdout=subprocess.PIPE,
-                        stderr=subprocess.PIPE,
-                        env=self.env
-                    )
-                except:
-                    self.logger.warning("sudo执行失败，尝试直接执行kadmin.local")
-                    cmd = ['kadmin.local', '-q', f'addprinc -pw {password} {full_principal}']
-                    process = subprocess.Popen(
-                        cmd,
-                        stdout=subprocess.PIPE,
-                        stderr=subprocess.PIPE,
-                        env=self.env
-                    )
-            else:
-                process = subprocess.Popen(
-                    cmd,
-                    stdout=subprocess.PIPE,
-                    stderr=subprocess.PIPE,
-                    env=self.env
-                )
+            # 执行命令
+            process = subprocess.Popen(
+                cmd,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                env=env
+            )
             
             # 获取输出
             stdout, stderr = process.communicate()
@@ -454,21 +447,30 @@ class KerberosAuth:
             error = stderr.decode()
             
             # 检查是否创建成功
-            if process.returncode == 0 or "Principal" in output and "created" in output:
+            if process.returncode == 0 and ("Principal" in output and "created" in output):
                 self.logger.info(f"成功创建主体: {full_principal}")
                 return True
             else:
-                self.logger.error(f"创建主体失败: {output}, {error}")
-                # 如果是权限问题，给出更明确的提示
+                # 详细记录错误信息
+                self.logger.error(f"创建主体失败: {full_principal}")
+                self.logger.error(f"命令输出: {output}")
+                self.logger.error(f"错误信息: {error}")
+                
+                # 检查常见错误
                 if "Permission denied" in error or "权限被拒绝" in error:
-                    self.logger.error("执行kadmin.local需要root权限，请确保当前用户有sudo权限或直接以root用户运行")
-                elif "Already exists" in error or "已经存在" in error:
+                    self.logger.error("执行kadmin.local需要root权限")
+                elif "Cannot fetch master key" in error:
+                    self.logger.error("无法获取KDC主密钥，请检查KDC数据库权限")
+                elif "Database not initialized" in error:
+                    self.logger.error("KDC数据库未初始化")
+                elif "Already exists" in error:
                     self.logger.info(f"主体已存在: {full_principal}")
                     return True
+                
                 return False
                 
         except Exception as e:
-            self.logger.error(f"创建主体出错: {str(e)}")
+            self.logger.error(f"创建主体时出错: {str(e)}")
             return False
 
 # 创建一个模拟的krb5.conf配置文件
