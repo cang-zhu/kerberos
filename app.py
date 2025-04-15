@@ -156,6 +156,26 @@ def init_services():
             logger.error("缺少必要的Kerberos配置路径")
             return
             
+        # 确保配置目录存在
+        for path in [os.path.dirname(KRB5_CONFIG), os.path.dirname(KRB5_KDC_PROFILE)]:
+            if not os.path.exists(path):
+                try:
+                    os.makedirs(path, mode=0o755, exist_ok=True)
+                    logger.info("创建目录: {}".format(path))
+                except Exception as e:
+                    logger.error("创建目录失败 {}: {}".format(path, str(e)))
+                    return
+        
+        # 确保KDC数据库目录存在
+        kdc_db_dir = os.path.dirname(KDC_DB_PATH)
+        if not os.path.exists(kdc_db_dir):
+            try:
+                os.makedirs(kdc_db_dir, mode=0o700, exist_ok=True)
+                logger.info("创建KDC数据库目录: {}".format(kdc_db_dir))
+            except Exception as e:
+                logger.error("创建KDC数据库目录失败: {}".format(str(e)))
+                return
+            
         # 检查配置文件是否存在
         if not all(os.path.exists(path) for path in [KRB5_CONFIG, KRB5_KDC_PROFILE]):
             logger.error("Kerberos配置文件不存在")
