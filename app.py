@@ -110,7 +110,7 @@ def find_kerberos_command(command_name):
     ]
     
     # 首先检查环境变量中是否有定义
-    env_var = f'KRB5_{command_name.upper()}_PATH'
+    env_var = 'KRB5_{}_PATH'.format(command_name.upper())
     if os.getenv(env_var):
         cmd_path = os.getenv(env_var)
         if os.path.exists(cmd_path):
@@ -135,7 +135,7 @@ def init_services():
         # 检查Hadoop配置
         config_ok, issues = hadoop_service.check_hadoop_config()
         if not config_ok:
-            logger.error(f"Hadoop配置检查失败: {', '.join(issues)}")
+            logger.error("Hadoop配置检查失败: {}".format(', '.join(issues)))
         else:
             # 启动Hadoop服务
             success, message = hadoop_service.start_services()
@@ -144,7 +144,7 @@ def init_services():
             else:
                 logger.error(message)
     except Exception as e:
-        logger.error(f"初始化Hadoop服务时出错: {str(e)}")
+        logger.error("初始化Hadoop服务时出错: {}".format(str(e)))
 
     # 初始化Kerberos服务
     try:
@@ -184,7 +184,7 @@ def init_services():
         
         logger.info("Kerberos服务初始化完成")
     except Exception as e:
-        logger.error(f"初始化Kerberos服务时出错: {str(e)}")
+        logger.error("初始化Kerberos服务时出错: {}".format(str(e)))
 
 def create_kdc_database():
     try:
@@ -219,11 +219,11 @@ def create_kdc_database():
         if result.returncode == 0:
             logger.info("KDC数据库创建成功")
         else:
-            logger.error(f"KDC数据库创建失败: {result.stderr}")
+            logger.error("KDC数据库创建失败: {}".format(result.stderr))
             raise Exception(result.stderr)
             
     except Exception as e:
-        logger.error(f"创建KDC数据库时出错: {str(e)}")
+        logger.error("创建KDC数据库时出错: {}".format(str(e)))
         raise
 
 def start_kdc_server():
@@ -249,7 +249,7 @@ def start_kdc_server():
         )
         logger.info("KDC服务启动成功")
     except Exception as e:
-        logger.error(f"启动KDC服务时出错: {str(e)}")
+        logger.error("启动KDC服务时出错: {}".format(str(e)))
         raise
 
 def start_kadmin_server():
@@ -275,7 +275,7 @@ def start_kadmin_server():
         )
         logger.info("kadmin服务启动成功")
     except Exception as e:
-        logger.error(f"启动kadmin服务时出错: {str(e)}")
+        logger.error("启动kadmin服务时出错: {}".format(str(e)))
         raise
 
 # 替换before_first_request装饰器
