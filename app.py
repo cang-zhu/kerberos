@@ -1095,6 +1095,7 @@ def register():
                 success_msg = '注册成功，但Kerberos主体创建出错'
             
             if is_admin_creating:
+                app.logger.info(f"管理员创建用户成功: {username}")
                 return jsonify({
                     'success': True,
                     'message': success_msg,
@@ -1106,7 +1107,7 @@ def register():
                         'is_active': new_user.is_active,
                         'totp_secret': new_user.totp_secret
                     }
-                }), 200  # 明确指定200状态码
+                }), 200
             
             flash(success_msg, 'success')
             return redirect(url_for('login'))
@@ -1116,7 +1117,11 @@ def register():
             app.logger.error(f"用户注册失败: {str(e)}")
             error_msg = '注册过程中发生错误，请稍后再试'
             if is_admin_creating:
-                return jsonify({'success': False, 'error': error_msg})
+                app.logger.error(f"管理员创建用户失败: {username}, 错误: {str(e)}")
+                return jsonify({
+                    'success': False,
+                    'error': error_msg
+                }), 500
             flash(error_msg, 'danger')
             return render_template('register.html')
     

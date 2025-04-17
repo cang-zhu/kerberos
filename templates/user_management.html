@@ -303,9 +303,14 @@
                 body: JSON.stringify(data)
             });
             
-            const result = await response.json();
+            console.log('Response status:', response.status);
+            console.log('Response ok:', response.ok);
             
-            if (response.ok && result.success) {
+            const result = await response.json();
+            console.log('Response result:', result);
+            
+            // 检查响应状态和内容
+            if (result.success === true) {
                 // 显示成功消息，包括Kerberos主体创建状态
                 let message = result.message || '用户创建成功！';
                 alert(message);
