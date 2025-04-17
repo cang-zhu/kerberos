@@ -306,13 +306,21 @@
             const result = await response.json();
             
             if (result.success) {
-                alert('用户创建成功！');
+                // 显示成功消息，包括Kerberos主体创建状态
+                let message = result.message || '用户创建成功！';
+                alert(message);
+                
                 // 关闭模态框
                 const modal = bootstrap.Modal.getInstance(document.getElementById('addUserModal'));
                 modal.hide();
+                
+                // 清空表单
+                event.target.reset();
+                
                 // 刷新用户列表
-                loadUserTable();
+                location.reload();
             } else {
+                // 显示具体的错误信息
                 alert('创建用户失败：' + (result.error || '未知错误'));
             }
         } catch (error) {
