@@ -1016,11 +1016,20 @@ def logout():
 @app.route('/register', methods=['GET', 'POST'])
 def register():
     if request.method == 'POST':
-        username = request.form.get('username')
-        password = request.form.get('password')
-        confirm_password = request.form.get('confirm_password')  # 修改字段名
-        email = request.form.get('email', '').strip()  # 清除可能的空格
-        realm = request.form.get('realm', 'HADOOP.COM')  # 获取用户选择的领域
+        # 获取请求数据
+        if request.is_json:
+            data = request.get_json()
+            username = data.get('username')
+            password = data.get('password')
+            confirm_password = data.get('confirm_password')
+            email = data.get('email', '').strip()
+            realm = data.get('realm', 'HADOOP.COM')
+        else:
+            username = request.form.get('username')
+            password = request.form.get('password')
+            confirm_password = request.form.get('confirm_password')
+            email = request.form.get('email', '').strip()
+            realm = request.form.get('realm', 'HADOOP.COM')
         
         # 检查是否是管理员在添加用户
         is_admin_creating = current_user.is_authenticated and current_user.is_admin
@@ -1094,7 +1103,8 @@ def register():
                         'username': new_user.username,
                         'email': new_user.email,
                         'is_admin': new_user.is_admin,
-                        'is_active': new_user.is_active
+                        'is_active': new_user.is_active,
+                        'totp_secret': new_user.totp_secret
                     }
                 })
             
