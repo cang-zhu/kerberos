@@ -1032,20 +1032,20 @@ def register():
             realm = request.form.get('realm', 'HADOOP.COM')
         
         # 检查是否是管理员在添加用户
-        is_admin_creating = current_user.is_authenticated and current_user.is_admin
+        is_admin_creating = is_admin_user()
         
         # 简单表单验证
         if not username or not password:
             error_msg = '用户名和密码不能为空'
             if is_admin_creating:
-                return jsonify({'success': False, 'error': error_msg})
+                return jsonify({'success': False, 'error': error_msg}), 400
             flash(error_msg, 'danger')
             return render_template('register.html')
             
         if password != confirm_password:
             error_msg = '两次输入的密码不一致'
             if is_admin_creating:
-                return jsonify({'success': False, 'error': error_msg})
+                return jsonify({'success': False, 'error': error_msg}), 400
             flash(error_msg, 'danger')
             return render_template('register.html')
             
@@ -1054,7 +1054,7 @@ def register():
         if existing_user:
             error_msg = '用户名已存在'
             if is_admin_creating:
-                return jsonify({'success': False, 'error': error_msg})
+                return jsonify({'success': False, 'error': error_msg}), 400
             flash(error_msg, 'danger')
             return render_template('register.html')
         
@@ -1064,7 +1064,7 @@ def register():
             if existing_email:
                 error_msg = '电子邮件地址已被使用'
                 if is_admin_creating:
-                    return jsonify({'success': False, 'error': error_msg})
+                    return jsonify({'success': False, 'error': error_msg}), 400
                 flash(error_msg, 'danger')
                 return render_template('register.html')
         
