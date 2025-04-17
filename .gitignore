@@ -10,6 +10,7 @@ ENV/
 # 数据库
 instance/
 metastore_db/
+app.db
 
 # 日志
 logs/
