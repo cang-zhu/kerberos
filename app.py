@@ -1106,7 +1106,7 @@ def register():
                         'is_active': new_user.is_active,
                         'totp_secret': new_user.totp_secret
                     }
-                })
+                }), 200  # 明确指定200状态码
             
             flash(success_msg, 'success')
             return redirect(url_for('login'))

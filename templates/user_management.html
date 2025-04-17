@@ -305,7 +305,7 @@
             
             const result = await response.json();
             
-            if (response.ok) {
+            if (response.ok && result.success) {
                 // 显示成功消息，包括Kerberos主体创建状态
                 let message = result.message || '用户创建成功！';
                 alert(message);
