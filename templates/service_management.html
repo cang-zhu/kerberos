@@ -255,58 +255,170 @@
 {% block scripts %}
 <script>
     let currentService = '';
+    // 服务状态映射
+    const serviceStatus = {
+        'namenode': 'running',
+        'datanode': 'running',
+        'resourcemanager': 'running',
+        'hiveserver2': 'stopped',
+        'metastore': 'warning'
+    };
+    
+    // 更新服务状态显示
+    function updateServiceStatus(service, status) {
+        const badge = document.querySelector(`[onclick*="${service}"]`).closest('.card').querySelector('.status-badge');
+        const buttons = document.querySelector(`[onclick*="${service}"]`).closest('.btn-group');
+        
+        // 更新状态标签
+        badge.className = `badge status-badge mb-3 ${getStatusClass(status)}`;
+        badge.textContent = getStatusText(status);
+        
+        // 更新按钮状态
+        if (status === 'running') {
+            buttons.innerHTML = `
+                <button class="btn btn-outline-danger" onclick="stopService('${service}')">
+                    <i class="bi bi-stop-fill"></i> 停止
+                </button>
+                <button class="btn btn-outline-primary" onclick="restartService('${service}')">
+                    <i class="bi bi-arrow-clockwise"></i> 重启
+                </button>
+                <button class="btn btn-outline-secondary" onclick="showLogs('${service}')">
+                    <i class="bi bi-file-text"></i> 日志
+                </button>
+            `;
+        } else {
+            buttons.innerHTML = `
+                <button class="btn btn-outline-success" onclick="startService('${service}')">
+                    <i class="bi bi-play-fill"></i> 启动
+                </button>
+                <button class="btn btn-outline-primary" onclick="restartService('${service}')">
+                    <i class="bi bi-arrow-clockwise"></i> 重启
+                </button>
+                <button class="btn btn-outline-secondary" onclick="showLogs('${service}')">
+                    <i class="bi bi-file-text"></i> 日志
+                </button>
+            `;
+        }
+        
+        // 更新统计信息
+        updateStatistics();
+    }
+    
+    // 获取状态对应的CSS类
+    function getStatusClass(status) {
+        switch(status) {
+            case 'running': return 'bg-success';
+            case 'stopped': return 'bg-danger';
+            case 'warning': return 'bg-warning';
+            default: return 'bg-secondary';
+        }
+    }
+    
+    // 获取状态对应的文本
+    function getStatusText(status) {
+        switch(status) {
+            case 'running': return '运行中';
+            case 'stopped': return '已停止';
+            case 'warning': return '警告';
+            default: return '未知';
+        }
+    }
+    
+    // 更新统计信息
+    function updateStatistics() {
+        const counts = {
+            running: 0,
+            stopped: 0,
+            warning: 0
+        };
+        
+        Object.values(serviceStatus).forEach(status => {
+            counts[status]++;
+        });
+        
+        document.getElementById('runningCount').textContent = counts.running;
+        document.getElementById('stoppedCount').textContent = counts.stopped;
+        document.getElementById('warningCount').textContent = counts.warning;
+        document.getElementById('totalCount').textContent = Object.keys(serviceStatus).length;
+    }
     
     function startService(service) {
-        alert('启动服务: ' + service);
-        // 这里可以实现启动服务的功能，例如发送AJAX请求
+        if (confirm(`确定要启动 ${service} 服务吗？`)) {
+            serviceStatus[service] = 'running';
+            updateServiceStatus(service, 'running');
+            // 这里可以添加发送AJAX请求到后端的代码
+        }
     }
     
     function stopService(service) {
-        alert('停止服务: ' + service);
-        // 这里可以实现停止服务的功能，例如发送AJAX请求
+        if (confirm(`确定要停止 ${service} 服务吗？`)) {
+            serviceStatus[service] = 'stopped';
+            updateServiceStatus(service, 'stopped');
+            // 这里可以添加发送AJAX请求到后端的代码
+        }
     }
     
     function restartService(service) {
-        alert('重启服务: ' + service);
-        // 这里可以实现重启服务的功能，例如发送AJAX请求
+        if (confirm(`确定要重启 ${service} 服务吗？`)) {
+            serviceStatus[service] = 'stopped';
+            updateServiceStatus(service, 'stopped');
+            
+            // 模拟重启过程
+            setTimeout(() => {
+                serviceStatus[service] = 'running';
+                updateServiceStatus(service, 'running');
+            }, 2000);
+            // 这里可以添加发送AJAX请求到后端的代码
+        }
     }
     
     function showLogs(service) {
         currentService = service;
-        // 模拟获取日志数据
-        const logContent = `[2025-03-26 20:15:30] INFO: ${service} 服务启动中...\n[2025-03-26 20:15:35] INFO: 初始化配置...\n[2025-03-26 20:15:40] INFO: ${service} 服务已成功启动\n[2025-03-26 20:16:10] INFO: 接收客户端连接...\n[2025-03-26 20:16:15] INFO: 处理请求...`;
+        const logContent = `[${new Date().toLocaleString()}] INFO: ${service} 服务${serviceStatus[service] === 'running' ? '运行中' : '已停止'}...\n[${new Date().toLocaleString()}] INFO: 内存使用率: ${Math.floor(Math.random() * 100)}%\n[${new Date().toLocaleString()}] INFO: 处理请求...`;
         
         document.getElementById('serviceLogContent').textContent = logContent;
         document.getElementById('logModalLabel').textContent = `${service} 服务日志`;
         
-        // 显示模态框
         const logModal = new bootstrap.Modal(document.getElementById('logModal'));
         logModal.show();
     }
     
     function refreshLogs() {
-        // 模拟刷新日志
-        const newLog = `[2025-03-26 20:20:05] INFO: ${currentService} 服务运行正常\n[2025-03-26 20:20:10] INFO: 内存使用率: 45%\n[2025-03-26 20:20:15] INFO: 处理新请求...`;
+        const newLog = `[${new Date().toLocaleString()}] INFO: ${currentService} 服务${serviceStatus[currentService] === 'running' ? '运行正常' : '已停止'}\n[${new Date().toLocaleString()}] INFO: 内存使用率: ${Math.floor(Math.random() * 100)}%\n[${new Date().toLocaleString()}] INFO: 处理新请求...`;
         document.getElementById('serviceLogContent').textContent += '\n' + newLog;
     }
     
     function startAllServices() {
         if (confirm('确定要启动所有服务吗？')) {
-            alert('启动所有服务');
-            // 这里可以实现启动所有服务的功能，例如发送AJAX请求
+            Object.keys(serviceStatus).forEach(service => {
+                serviceStatus[service] = 'running';
+                updateServiceStatus(service, 'running');
+            });
+            // 这里可以添加发送AJAX请求到后端的代码
         }
     }
     
     function stopAllServices() {
         if (confirm('确定要停止所有服务吗？')) {
-            alert('停止所有服务');
-            // 这里可以实现停止所有服务的功能，例如发送AJAX请求
+            Object.keys(serviceStatus).forEach(service => {
+                serviceStatus[service] = 'stopped';
+                updateServiceStatus(service, 'stopped');
+            });
+            // 这里可以添加发送AJAX请求到后端的代码
         }
     }
     
     function refreshStatus() {
-        alert('刷新服务状态');
-        // 这里可以实现刷新服务状态的功能，例如发送AJAX请求
+        // 这里可以添加发送AJAX请求到后端的代码
+        // 目前只是更新显示
+        updateStatistics();
     }
+    
+    // 初始化页面时更新所有服务状态
+    document.addEventListener('DOMContentLoaded', function() {
+        Object.entries(serviceStatus).forEach(([service, status]) => {
+            updateServiceStatus(service, status);
+        });
+    });
 </script>
 {% endblock %} 
