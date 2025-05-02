@@ -960,11 +960,6 @@ def service_management():
         flash('请先完成二次验证', 'warning')
         return redirect(url_for('auth_choice'))
     
-    # 检查管理员权限
-    if not is_admin_user():
-        flash('需要管理员权限才能访问此页面', 'danger')
-        return redirect(url_for('dashboard'))
-    
     return render_template('service_management.html')
 
 @app.route('/security')
@@ -1453,6 +1448,94 @@ def search_users():
     except Exception as e:
         app.logger.error(f"搜索用户失败: {str(e)}", exc_info=True)
         return jsonify({'success': False, 'error': str(e)}), 500
+
+@app.route('/api/services/status')
+@login_required
+def get_services_status():
+    """获取服务状态"""
+    # 获取用户角色
+    user = current_user
+    is_admin = is_admin_user()
+    
+    # 获取用户有权限的服务
+    available_services = []
+    if is_admin:
+        # 管理员可以看到所有服务
+        available_services = list(SERVICE_PERMISSIONS.keys())
+    else:
+        # 普通用户只能看到其角色对应的服务
+        for service, roles in SERVICE_PERMISSIONS.items():
+            if any(role in user.roles.split(',') for role in roles):
+                available_services.append(service)
+    
+    # 返回服务状态
+    status = {}
+    for service in available_services:
+        status[service] = {
+            'status': 'running' if service != 'hiveserver2' else 'stopped',
+            'has_permission': True
+        }
+    
+    return jsonify(status)
+
+@app.route('/api/services/<service_name>/<action>', methods=['POST'])
+@login_required
+def control_service(service_name, action):
+    """控制服务（启动/停止/重启）"""
+    # 获取用户角色
+    user = current_user
+    is_admin = is_admin_user()
+    
+    # 检查权限
+    has_permission = False
+    if is_admin:
+        has_permission = True
+    else:
+        service_roles = SERVICE_PERMISSIONS.get(service_name, [])
+        has_permission = any(role in user.roles.split(',') for role in service_roles)
+    
+    if not has_permission:
+        return jsonify({'error': '没有权限操作该服务'}), 403
+        
+    if action not in ['start', 'stop', 'restart']:
+        return jsonify({'error': '无效的操作'}), 400
+        
+    # 这里应该实现实际的服务控制逻辑
+    # 目前返回模拟的成功响应
+    return jsonify({
+        'success': True,
+        'message': f'服务 {service_name} {action} 操作已执行',
+        'status': 'running' if action in ['start', 'restart'] else 'stopped'
+    })
+
+@app.route('/api/services/<service_name>/logs')
+@login_required
+def get_service_logs(service_name):
+    """获取服务日志"""
+    # 获取用户角色
+    user = current_user
+    is_admin = is_admin_user()
+    
+    # 检查权限
+    has_permission = False
+    if is_admin:
+        has_permission = True
+    else:
+        service_roles = SERVICE_PERMISSIONS.get(service_name, [])
+        has_permission = any(role in user.roles.split(',') for role in service_roles)
+    
+    if not has_permission:
+        return jsonify({'error': '没有权限查看该服务日志'}), 403
+        
+    # 这里应该实现实际的日志获取逻辑
+    # 目前返回模拟的日志数据
+    logs = [
+        f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] INFO: {service_name} 服务运行中...",
+        f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] INFO: 内存使用率: {random.randint(30, 80)}%",
+        f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] INFO: 处理请求..."
+    ]
+    
+    return jsonify({'logs': logs})
 
 if __name__ == '__main__':
     with app.app_context():
