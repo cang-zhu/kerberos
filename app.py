@@ -969,17 +969,33 @@ def delete_user(username):
 
 @app.route('/service_management')
 def service_management():
-    """服务管理页面"""
-    # 检查认证和TOTP验证
-    if not (current_user.is_authenticated or session.get('kerberos_authenticated')):
-        flash('请先登录', 'warning')
-        return redirect(url_for('auth_choice'))
-    
-    if not session.get('totp_verified'):
-        flash('请先完成二次验证', 'warning')
-        return redirect(url_for('auth_choice'))
-    
-    return render_template('service_management.html')
+    # 兼容 Flask-Login 和 Kerberos 登录
+    if current_user.is_authenticated and hasattr(current_user, 'username'):
+        username = current_user.username
+    else:
+        username = session.get('kerberos_principal', '').split('@')[0]
+    # 跳转到专属页面
+    if username == 'hdfs_admin':
+        return redirect(url_for('service_management_hdfs'))
+    elif username == 'yarn_admin':
+        return redirect(url_for('service_management_yarn'))
+    elif username == 'hive_admin':
+        return redirect(url_for('service_management_hive'))
+    else:
+        # 其他用户或admin可跳转到原有页面或提示
+        return render_template('service_management.html')
+
+@app.route('/service_management_hdfs')
+def service_management_hdfs():
+    return render_template('service_management_hdfs.html')
+
+@app.route('/service_management_yarn')
+def service_management_yarn():
+    return render_template('service_management_yarn.html')
+
+@app.route('/service_management_hive')
+def service_management_hive():
+    return render_template('service_management_hive.html')
 
 @app.route('/security')
 def security_settings():
