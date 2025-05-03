@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+{% block title %}服务管理 - HDFS{% endblock %}
+{% block additional_style %}{% include 'service_management_style.html' %}{% endblock %}
+{% block content %}
+<div class="row">
+    <div class="col-md-12">
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="mb-0">HDFS 服务管理</h5>
+                <a href="{{ url_for('dashboard') }}" class="btn btn-sm btn-outline-secondary">
+                    <i class="bi bi-arrow-left"></i> 返回仪表板
+                </a>
+            </div>
+            <div class="card-body">
+                <div class="alert alert-info">
+                    <i class="bi bi-info-circle-fill me-2"></i> 仅可管理 NameNode 和 DataNode。
+                </div>
+                <div class="row mb-4" id="hadoopServiceCards">
+                    <!-- NameNode -->
+                    <div class="col-md-6 mb-3">
+                        <div class="card service-card">
+                            <div class="card-body text-center">
+                                <i class="bi bi-hdd-network service-icon text-primary"></i>
+                                <h5>NameNode</h5>
+                                <span class="badge bg-success status-badge mb-3">运行中</span>
+                                <p class="text-muted">管理 HDFS 命名空间</p>
+                                <div class="btn-group w-100" role="group">
+                                    <button class="btn btn-outline-danger" onclick="stopService('namenode')"><i class="bi bi-stop-fill"></i> 停止</button>
+                                    <button class="btn btn-outline-primary" onclick="restartService('namenode')"><i class="bi bi-arrow-clockwise"></i> 重启</button>
+                                    <button class="btn btn-outline-secondary" onclick="showLogs('namenode')"><i class="bi bi-file-text"></i> 日志</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <!-- DataNode -->
+                    <div class="col-md-6 mb-3">
+                        <div class="card service-card">
+                            <div class="card-body text-center">
+                                <i class="bi bi-hdd-stack service-icon text-success"></i>
+                                <h5>DataNode</h5>
+                                <span class="badge bg-success status-badge mb-3">运行中</span>
+                                <p class="text-muted">存储和管理数据块</p>
+                                <div class="btn-group w-100" role="group">
+                                    <button class="btn btn-outline-danger" onclick="stopService('datanode')"><i class="bi bi-stop-fill"></i> 停止</button>
+                                    <button class="btn btn-outline-primary" onclick="restartService('datanode')"><i class="bi bi-arrow-clockwise"></i> 重启</button>
+                                    <button class="btn btn-outline-secondary" onclick="showLogs('datanode')"><i class="bi bi-file-text"></i> 日志</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% include 'service_management_log_modal.html' %}
+{% endblock %}
+{% block scripts %}{% include 'service_management_scripts_hdfs.html' %}{% endblock %} 

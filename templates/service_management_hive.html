@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+{% block title %}服务管理 - Hive{% endblock %}
+{% block additional_style %}{% include 'service_management_style.html' %}{% endblock %}
+{% block content %}
+<div class="row">
+    <div class="col-md-12">
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="mb-0">Hive 服务管理</h5>
+                <a href="{{ url_for('dashboard') }}" class="btn btn-sm btn-outline-secondary">
+                    <i class="bi bi-arrow-left"></i> 返回仪表板
+                </a>
+            </div>
+            <div class="card-body">
+                <div class="alert alert-info">
+                    <i class="bi bi-info-circle-fill me-2"></i> 仅可管理 HiveServer2 和 Metastore。
+                </div>
+                <div class="row mb-4" id="hiveServiceCards">
+                    <!-- HiveServer2 -->
+                    <div class="col-md-6 mb-3">
+                        <div class="card service-card">
+                            <div class="card-body text-center">
+                                <i class="bi bi-server service-icon text-warning"></i>
+                                <h5>HiveServer2</h5>
+                                <span class="badge bg-danger status-badge mb-3">已停止</span>
+                                <p class="text-muted">提供 Hive 查询服务</p>
+                                <div class="btn-group w-100" role="group">
+                                    <button class="btn btn-outline-success" onclick="startService('hiveserver2')"><i class="bi bi-play-fill"></i> 启动</button>
+                                    <button class="btn btn-outline-primary" onclick="restartService('hiveserver2')"><i class="bi bi-arrow-clockwise"></i> 重启</button>
+                                    <button class="btn btn-outline-secondary" onclick="showLogs('hiveserver2')"><i class="bi bi-file-text"></i> 日志</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <!-- Metastore -->
+                    <div class="col-md-6 mb-3">
+                        <div class="card service-card">
+                            <div class="card-body text-center">
+                                <i class="bi bi-database service-icon text-danger"></i>
+                                <h5>Metastore</h5>
+                                <span class="badge bg-warning status-badge mb-3">警告</span>
+                                <p class="text-muted">管理元数据</p>
+                                <div class="btn-group w-100" role="group">
+                                    <button class="btn btn-outline-danger" onclick="stopService('metastore')"><i class="bi bi-stop-fill"></i> 停止</button>
+                                    <button class="btn btn-outline-primary" onclick="restartService('metastore')"><i class="bi bi-arrow-clockwise"></i> 重启</button>
+                                    <button class="btn btn-outline-secondary" onclick="showLogs('metastore')"><i class="bi bi-file-text"></i> 日志</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% include 'service_management_log_modal.html' %}
+{% endblock %}
+{% block scripts %}{% include 'service_management_scripts_hive.html' %}{% endblock %} 

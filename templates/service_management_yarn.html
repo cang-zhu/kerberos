@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+{% block title %}服务管理 - YARN{% endblock %}
+{% block additional_style %}{% include 'service_management_style.html' %}{% endblock %}
+{% block content %}
+<div class="row">
+    <div class="col-md-12">
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="mb-0">YARN 服务管理</h5>
+                <a href="{{ url_for('dashboard') }}" class="btn btn-sm btn-outline-secondary">
+                    <i class="bi bi-arrow-left"></i> 返回仪表板
+                </a>
+            </div>
+            <div class="card-body">
+                <div class="alert alert-info">
+                    <i class="bi bi-info-circle-fill me-2"></i> 仅可管理 ResourceManager 和 NodeManager。
+                </div>
+                <div class="row mb-4" id="yarnServiceCards">
+                    <!-- ResourceManager -->
+                    <div class="col-md-6 mb-3">
+                        <div class="card service-card">
+                            <div class="card-body text-center">
+                                <i class="bi bi-cpu service-icon text-info"></i>
+                                <h5>ResourceManager</h5>
+                                <span class="badge bg-success status-badge mb-3">运行中</span>
+                                <p class="text-muted">管理集群资源分配</p>
+                                <div class="btn-group w-100" role="group">
+                                    <button class="btn btn-outline-danger" onclick="stopService('resourcemanager')"><i class="bi bi-stop-fill"></i> 停止</button>
+                                    <button class="btn btn-outline-primary" onclick="restartService('resourcemanager')"><i class="bi bi-arrow-clockwise"></i> 重启</button>
+                                    <button class="btn btn-outline-secondary" onclick="showLogs('resourcemanager')"><i class="bi bi-file-text"></i> 日志</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <!-- NodeManager -->
+                    <div class="col-md-6 mb-3">
+                        <div class="card service-card">
+                            <div class="card-body text-center">
+                                <i class="bi bi-hdd service-icon text-info"></i>
+                                <h5>NodeManager</h5>
+                                <span class="badge bg-success status-badge mb-3">运行中</span>
+                                <p class="text-muted">管理节点资源</p>
+                                <div class="btn-group w-100" role="group">
+                                    <button class="btn btn-outline-danger" onclick="stopService('nodemanager')"><i class="bi bi-stop-fill"></i> 停止</button>
+                                    <button class="btn btn-outline-primary" onclick="restartService('nodemanager')"><i class="bi bi-arrow-clockwise"></i> 重启</button>
+                                    <button class="btn btn-outline-secondary" onclick="showLogs('nodemanager')"><i class="bi bi-file-text"></i> 日志</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% include 'service_management_log_modal.html' %}
+{% endblock %}
+{% block scripts %}{% include 'service_management_scripts_yarn.html' %}{% endblock %} 
