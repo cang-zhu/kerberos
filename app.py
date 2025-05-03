@@ -791,8 +791,11 @@ def dashboard():
         is_service_manager_user = False
         if is_admin:
             is_service_manager_user = True
-        elif user and user.roles:
-            is_service_manager_user = any(role in user.roles.split(',') for role in service_roles)
+        elif user:
+            is_service_manager_user = (
+                (user.roles and any(role in user.roles.split(',') for role in service_roles))
+                or (user.username in service_roles)
+            )
         session['is_admin'] = is_admin
         
         # 计算票据时间
@@ -829,8 +832,11 @@ def dashboard():
         is_service_manager_user = False
         if is_admin:
             is_service_manager_user = True
-        elif user and user.roles:
-            is_service_manager_user = any(role in user.roles.split(',') for role in service_roles)
+        elif user:
+            is_service_manager_user = (
+                (user.roles and any(role in user.roles.split(',') for role in service_roles))
+                or (user.username in service_roles)
+            )
         return render_template('dashboard.html', 
                           username=user.username,
                           is_admin=is_admin,
