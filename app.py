@@ -1504,21 +1504,19 @@ def control_service(service_name, action):
     # 获取用户角色
     user = current_user
     is_admin = is_admin_user()
-    
-    # 检查权限
+    service_required_roles = SERVICE_PERMISSIONS.get(service_name, [])
     has_permission = False
     if is_admin:
         has_permission = True
     else:
-        service_roles = SERVICE_PERMISSIONS.get(service_name, [])
-        has_permission = any(role in user.roles.split(',') for role in service_roles)
-    
+        has_permission = (
+            (user.roles and any(role in user.roles.split(',') for role in service_required_roles))
+            or (user.username in service_required_roles)
+        )
     if not has_permission:
         return jsonify({'error': '没有权限操作该服务'}), 403
-        
     if action not in ['start', 'stop', 'restart']:
         return jsonify({'error': '无效的操作'}), 400
-        
     # 这里应该实现实际的服务控制逻辑
     # 目前返回模拟的成功响应
     return jsonify({
