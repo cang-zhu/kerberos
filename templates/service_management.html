@@ -255,15 +255,59 @@
 {% block scripts %}
 <script>
     let currentService = '';
-    // 服务状态映射
-    const serviceStatus = {
+    // 服务状态和权限映射
+    let serviceStatus = {
         'namenode': 'running',
         'datanode': 'running',
         'resourcemanager': 'running',
         'hiveserver2': 'stopped',
         'metastore': 'warning'
     };
-    
+    let servicePermissions = {
+        'namenode': false,
+        'datanode': false,
+        'resourcemanager': false,
+        'hiveserver2': false,
+        'metastore': false
+    };
+
+    // 初始化服务权限
+    function fetchServicePermissions() {
+        $.get('/api/services/status', function(data) {
+            for (const [service, info] of Object.entries(data)) {
+                servicePermissions[service] = info.has_permission;
+            }
+            updateAllButtons();
+        });
+    }
+
+    // 更新所有服务按钮的可用状态
+    function updateAllButtons() {
+        Object.keys(servicePermissions).forEach(service => {
+            const btnGroup = document.querySelectorAll(`.btn-group[role='group']`);
+            btnGroup.forEach(group => {
+                if (group.innerHTML.includes(`stopService('${service}')`) || group.innerHTML.includes(`startService('${service}')`) || group.innerHTML.includes(`restartService('${service}')`)) {
+                    const buttons = group.querySelectorAll('button');
+                    buttons.forEach(btn => {
+                        if (btn.getAttribute('onclick') && btn.getAttribute('onclick').includes(service)) {
+                            if (!servicePermissions[service]) {
+                                btn.disabled = true;
+                                btn.onclick = function() { alert('您没有权限操作该服务！'); };
+                            } else {
+                                btn.disabled = false;
+                                // 还原原有事件
+                                if (btn.textContent.includes('停止')) btn.setAttribute('onclick', `stopService('${service}')`);
+                                if (btn.textContent.includes('启动')) btn.setAttribute('onclick', `startService('${service}')`);
+                                if (btn.textContent.includes('重启')) btn.setAttribute('onclick', `restartService('${service}')`);
+                                if (btn.textContent.includes('日志')) btn.setAttribute('onclick', `showLogs('${service}')`);
+                            }
+                        }
+                    });
+                }
+            });
+        });
+    }
+
     // 更新服务状态显示
     function updateServiceStatus(service, status) {
         const badge = document.querySelector(`[onclick*="${service}"]`).closest('.card').querySelector('.status-badge');
@@ -342,7 +386,12 @@
         document.getElementById('totalCount').textContent = Object.keys(serviceStatus).length;
     }
     
+    // 覆盖操作函数，增加前端权限判断
     function startService(service) {
+        if (!servicePermissions[service]) {
+            alert('您没有权限操作该服务！');
+            return;
+        }
         if (confirm(`确定要启动 ${service} 服务吗？`)) {
             serviceStatus[service] = 'running';
             updateServiceStatus(service, 'running');
@@ -351,6 +400,10 @@
     }
     
     function stopService(service) {
+        if (!servicePermissions[service]) {
+            alert('您没有权限操作该服务！');
+            return;
+        }
         if (confirm(`确定要停止 ${service} 服务吗？`)) {
             serviceStatus[service] = 'stopped';
             updateServiceStatus(service, 'stopped');
@@ -359,11 +412,13 @@
     }
     
     function restartService(service) {
+        if (!servicePermissions[service]) {
+            alert('您没有权限操作该服务！');
+            return;
+        }
         if (confirm(`确定要重启 ${service} 服务吗？`)) {
             serviceStatus[service] = 'stopped';
             updateServiceStatus(service, 'stopped');
-            
-            // 模拟重启过程
             setTimeout(() => {
                 serviceStatus[service] = 'running';
                 updateServiceStatus(service, 'running');
@@ -414,8 +469,9 @@
         updateStatistics();
     }
     
-    // 初始化页面时更新所有服务状态
+    // 页面加载时拉取权限
     document.addEventListener('DOMContentLoaded', function() {
+        fetchServicePermissions();
         Object.entries(serviceStatus).forEach(([service, status]) => {
             updateServiceStatus(service, status);
         });
