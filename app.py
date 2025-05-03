@@ -1217,10 +1217,14 @@ def kerberos_logout():
 @app.route('/api/service/status')
 @login_required
 def get_services_status():
-    user = current_user
+    # 兼容 Flask-Login 和 Kerberos 登录
+    if current_user.is_authenticated and hasattr(current_user, 'username'):
+        username = current_user.username
+    else:
+        username = session.get('kerberos_principal', '').split('@')[0]
     is_admin = is_admin_user()
+    app.logger.info(f"服务状态接口: username={username}, is_admin={is_admin}")
     service_status = {}
-    # 定义服务权限映射
     service_permissions = {
         'namenode': ['hdfs_admin', 'admin'],
         'datanode': ['hdfs_admin', 'admin'],
@@ -1229,9 +1233,8 @@ def get_services_status():
         'hiveserver2': ['hive_admin', 'admin'],
         'metastore': ['hive_admin', 'admin']
     }
-    # 只返回该用户能管理的服务
     for service, roles in service_permissions.items():
-        if is_admin or user.username in roles:
+        if is_admin or username in roles:
             service_status[service] = {
                 'status': 'running',
                 'has_permission': True
