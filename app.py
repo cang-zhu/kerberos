@@ -768,6 +768,9 @@ def dashboard():
     
     # 获取当前时间，用于显示
     now = datetime.now()
+
+    # 定义服务管理相关角色
+    service_roles = ['hdfs_admin', 'yarn_admin', 'hive_admin']
     
     # 检查认证方式
     if session.get('kerberos_authenticated'):
@@ -782,33 +785,37 @@ def dashboard():
         else:
             username = principal
         
-        # 设置管理员标志到session中，供模板使用
+        # 判断是否为服务管理权限用户
+        user = User.query.filter_by(username=username).first()
         is_admin = is_admin_user()
+        is_service_manager_user = False
+        if is_admin:
+            is_service_manager_user = True
+        elif user and user.roles:
+            is_service_manager_user = any(role in user.roles.split(',') for role in service_roles)
         session['is_admin'] = is_admin
         
         # 计算票据时间
         try:
             login_time_str = session.get('kerberos_login_time', datetime.now().isoformat())
             expiry_time_str = session.get('kerberos_expiry', (datetime.now() + timedelta(hours=10)).isoformat())
-            
             # 使用strptime替代fromisoformat
             try:
                 login_time = datetime.strptime(login_time_str, '%Y-%m-%dT%H:%M:%S.%f')
             except ValueError:
                 login_time = datetime.strptime(login_time_str, '%Y-%m-%dT%H:%M:%S')
-                
             try:
                 expiry_time = datetime.strptime(expiry_time_str, '%Y-%m-%dT%H:%M:%S.%f')
             except ValueError:
                 expiry_time = datetime.strptime(expiry_time_str, '%Y-%m-%dT%H:%M:%S')
         except Exception:
-            # 如果解析失败，使用当前时间
             login_time = datetime.now()
             expiry_time = datetime.now() + timedelta(hours=10)
         
         return render_template('dashboard.html',
                            username=username,
-                           is_admin=is_admin,  # 使用通用函数判断管理员权限
+                           is_admin=is_admin,
+                           is_service_manager_user=is_service_manager_user,
                            is_kerberos=True,
                            principal=principal,
                            realm=realm,
@@ -818,10 +825,16 @@ def dashboard():
     else:
         # 普通登录用户
         user = current_user
-        
+        is_admin = is_admin_user()
+        is_service_manager_user = False
+        if is_admin:
+            is_service_manager_user = True
+        elif user and user.roles:
+            is_service_manager_user = any(role in user.roles.split(',') for role in service_roles)
         return render_template('dashboard.html', 
                           username=user.username,
-                          is_admin=is_admin_user(),  # 使用通用函数判断管理员权限
+                          is_admin=is_admin,
+                          is_service_manager_user=is_service_manager_user,
                           is_kerberos=False,
                           now=now)
 
