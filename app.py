@@ -1220,19 +1220,30 @@ def get_services_status():
     user = current_user
     is_admin = is_admin_user()
     service_status = {}
-    for service, roles in SERVICE_PERMISSIONS.items():
+    
+    # 定义服务权限映射
+    service_permissions = {
+        'namenode': ['hdfs_admin', 'admin'],
+        'datanode': ['hdfs_admin', 'admin'],
+        'resourcemanager': ['yarn_admin', 'admin'],
+        'nodemanager': ['yarn_admin', 'admin'],
+        'hiveserver2': ['hive_admin', 'admin'],
+        'metastore': ['hive_admin', 'admin']
+    }
+    
+    for service, roles in service_permissions.items():
         has_permission = False
         if is_admin:
             has_permission = True
         else:
-            has_permission = (
-                (user.roles and any(role in user.roles.split(',') for role in roles))
-                or (user.username in roles)
-            )
+            # 检查用户名是否匹配
+            has_permission = user.username in roles
+            
         service_status[service] = {
-            'status': 'running' if service != 'hiveserver2' else 'stopped',
+            'status': 'running',  # 固定返回running状态
             'has_permission': has_permission
         }
+    
     return jsonify(service_status)
 
 @app.route('/api/services/<service_name>/<action>', methods=['POST'])
