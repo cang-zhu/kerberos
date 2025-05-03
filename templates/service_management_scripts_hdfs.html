@@ -1,0 +1,80 @@
+<script>
+    let currentService = '';
+    let serviceStatus = {
+        'namenode': 'running',
+        'datanode': 'running'
+    };
+    let servicePermissions = {
+        'namenode': true,
+        'datanode': true
+    };
+    function updateServiceStatus(service, status) {
+        const badge = document.querySelector(`[onclick*="${service}"]`).closest('.card').querySelector('.status-badge');
+        const buttons = document.querySelector(`[onclick*="${service}"]`).closest('.btn-group');
+        badge.className = `badge status-badge mb-3 ${getStatusClass(status)}`;
+        badge.textContent = getStatusText(status);
+        if (status === 'running') {
+            buttons.innerHTML = `
+                <button class="btn btn-outline-danger" onclick="stopService('${service}')"><i class="bi bi-stop-fill"></i> 停止</button>
+                <button class="btn btn-outline-primary" onclick="restartService('${service}')"><i class="bi bi-arrow-clockwise"></i> 重启</button>
+                <button class="btn btn-outline-secondary" onclick="showLogs('${service}')"><i class="bi bi-file-text"></i> 日志</button>
+            `;
+        } else {
+            buttons.innerHTML = `
+                <button class="btn btn-outline-success" onclick="startService('${service}')"><i class="bi bi-play-fill"></i> 启动</button>
+                <button class="btn btn-outline-primary" onclick="restartService('${service}')"><i class="bi bi-arrow-clockwise"></i> 重启</button>
+                <button class="btn btn-outline-secondary" onclick="showLogs('${service}')"><i class="bi bi-file-text"></i> 日志</button>
+            `;
+        }
+    }
+    function getStatusClass(status) {
+        switch(status) {
+            case 'running': return 'bg-success';
+            case 'stopped': return 'bg-danger';
+            case 'warning': return 'bg-warning';
+            default: return 'bg-secondary';
+        }
+    }
+    function getStatusText(status) {
+        switch(status) {
+            case 'running': return '运行中';
+            case 'stopped': return '已停止';
+            case 'warning': return '警告';
+            default: return '未知';
+        }
+    }
+    function startService(service) {
+        if (confirm(`确定要启动 ${service} 服务吗？`)) {
+            serviceStatus[service] = 'running';
+            updateServiceStatus(service, 'running');
+        }
+    }
+    function stopService(service) {
+        if (confirm(`确定要停止 ${service} 服务吗？`)) {
+            serviceStatus[service] = 'stopped';
+            updateServiceStatus(service, 'stopped');
+        }
+    }
+    function restartService(service) {
+        if (confirm(`确定要重启 ${service} 服务吗？`)) {
+            serviceStatus[service] = 'stopped';
+            updateServiceStatus(service, 'stopped');
+            setTimeout(() => {
+                serviceStatus[service] = 'running';
+                updateServiceStatus(service, 'running');
+            }, 2000);
+        }
+    }
+    function showLogs(service) {
+        currentService = service;
+        const logContent = `[${new Date().toLocaleString()}] INFO: ${service} 服务${serviceStatus[service] === 'running' ? '运行中' : '已停止'}...\n[${new Date().toLocaleString()}] INFO: 内存使用率: ${Math.floor(Math.random() * 100)}%\n[${new Date().toLocaleString()}] INFO: 处理请求...`;
+        document.getElementById('serviceLogContent').textContent = logContent;
+        document.getElementById('logModalLabel').textContent = `${service} 服务日志`;
+        const logModal = new bootstrap.Modal(document.getElementById('logModal'));
+        logModal.show();
+    }
+    function refreshLogs() {
+        const newLog = `[${new Date().toLocaleString()}] INFO: ${currentService} 服务${serviceStatus[currentService] === 'running' ? '运行正常' : '已停止'}\n[${new Date().toLocaleString()}] INFO: 内存使用率: ${Math.floor(Math.random() * 100)}%\n[${new Date().toLocaleString()}] INFO: 处理新请求...`;
+        document.getElementById('serviceLogContent').textContent += '\n' + newLog;
+    }
+</script> 
