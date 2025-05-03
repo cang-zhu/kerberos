@@ -1253,19 +1253,31 @@ def control_service(service_name, action):
     # 获取用户角色
     user = current_user
     is_admin = is_admin_user()
-    service_required_roles = SERVICE_PERMISSIONS.get(service_name, [])
+    
+    # 定义服务权限映射
+    service_permissions = {
+        'namenode': ['hdfs_admin', 'admin'],
+        'datanode': ['hdfs_admin', 'admin'],
+        'resourcemanager': ['yarn_admin', 'admin'],
+        'nodemanager': ['yarn_admin', 'admin'],
+        'hiveserver2': ['hive_admin', 'admin'],
+        'metastore': ['hive_admin', 'admin']
+    }
+    
+    # 检查权限
     has_permission = False
     if is_admin:
         has_permission = True
     else:
-        has_permission = (
-            (user.roles and any(role in user.roles.split(',') for role in service_required_roles))
-            or (user.username in service_required_roles)
-        )
+        # 检查用户名是否匹配
+        has_permission = user.username in service_permissions.get(service_name, [])
+    
     if not has_permission:
         return jsonify({'error': '没有权限操作该服务'}), 403
+        
     if action not in ['start', 'stop', 'restart']:
         return jsonify({'error': '无效的操作'}), 400
+        
     # 这里应该实现实际的服务控制逻辑
     # 目前返回模拟的成功响应
     return jsonify({
@@ -1282,13 +1294,23 @@ def get_service_logs(service_name):
     user = current_user
     is_admin = is_admin_user()
     
+    # 定义服务权限映射
+    service_permissions = {
+        'namenode': ['hdfs_admin', 'admin'],
+        'datanode': ['hdfs_admin', 'admin'],
+        'resourcemanager': ['yarn_admin', 'admin'],
+        'nodemanager': ['yarn_admin', 'admin'],
+        'hiveserver2': ['hive_admin', 'admin'],
+        'metastore': ['hive_admin', 'admin']
+    }
+    
     # 检查权限
     has_permission = False
     if is_admin:
         has_permission = True
     else:
-        service_roles = SERVICE_PERMISSIONS.get(service_name, [])
-        has_permission = any(role in user.roles.split(',') for role in service_roles)
+        # 检查用户名是否匹配
+        has_permission = user.username in service_permissions.get(service_name, [])
     
     if not has_permission:
         return jsonify({'error': '没有权限查看该服务日志'}), 403
