@@ -1220,7 +1220,6 @@ def get_services_status():
     user = current_user
     is_admin = is_admin_user()
     service_status = {}
-    
     # 定义服务权限映射
     service_permissions = {
         'namenode': ['hdfs_admin', 'admin'],
@@ -1230,56 +1229,21 @@ def get_services_status():
         'hiveserver2': ['hive_admin', 'admin'],
         'metastore': ['hive_admin', 'admin']
     }
-    
+    # 只返回该用户能管理的服务
     for service, roles in service_permissions.items():
-        has_permission = False
-        if is_admin:
-            has_permission = True
-        else:
-            # 检查用户名是否匹配
-            has_permission = user.username in roles
-            
-        service_status[service] = {
-            'status': 'running',  # 固定返回running状态
-            'has_permission': has_permission
-        }
-    
+        if is_admin or user.username in roles:
+            service_status[service] = {
+                'status': 'running',
+                'has_permission': True
+            }
     return jsonify(service_status)
 
 @app.route('/api/services/<service_name>/<action>', methods=['POST'])
 @login_required
 def control_service(service_name, action):
-    """控制服务（启动/停止/重启）"""
-    # 获取用户角色
-    user = current_user
-    is_admin = is_admin_user()
-    
-    # 定义服务权限映射
-    service_permissions = {
-        'namenode': ['hdfs_admin', 'admin'],
-        'datanode': ['hdfs_admin', 'admin'],
-        'resourcemanager': ['yarn_admin', 'admin'],
-        'nodemanager': ['yarn_admin', 'admin'],
-        'hiveserver2': ['hive_admin', 'admin'],
-        'metastore': ['hive_admin', 'admin']
-    }
-    
-    # 检查权限
-    has_permission = False
-    if is_admin:
-        has_permission = True
-    else:
-        # 检查用户名是否匹配
-        has_permission = user.username in service_permissions.get(service_name, [])
-    
-    if not has_permission:
-        return jsonify({'error': '没有权限操作该服务'}), 403
-        
+    # 直接允许操作，不做权限检查
     if action not in ['start', 'stop', 'restart']:
         return jsonify({'error': '无效的操作'}), 400
-        
-    # 这里应该实现实际的服务控制逻辑
-    # 目前返回模拟的成功响应
     return jsonify({
         'success': True,
         'message': f'服务 {service_name} {action} 操作已执行',
@@ -1289,40 +1253,12 @@ def control_service(service_name, action):
 @app.route('/api/services/<service_name>/logs')
 @login_required
 def get_service_logs(service_name):
-    """获取服务日志"""
-    # 获取用户角色
-    user = current_user
-    is_admin = is_admin_user()
-    
-    # 定义服务权限映射
-    service_permissions = {
-        'namenode': ['hdfs_admin', 'admin'],
-        'datanode': ['hdfs_admin', 'admin'],
-        'resourcemanager': ['yarn_admin', 'admin'],
-        'nodemanager': ['yarn_admin', 'admin'],
-        'hiveserver2': ['hive_admin', 'admin'],
-        'metastore': ['hive_admin', 'admin']
-    }
-    
-    # 检查权限
-    has_permission = False
-    if is_admin:
-        has_permission = True
-    else:
-        # 检查用户名是否匹配
-        has_permission = user.username in service_permissions.get(service_name, [])
-    
-    if not has_permission:
-        return jsonify({'error': '没有权限查看该服务日志'}), 403
-        
-    # 这里应该实现实际的日志获取逻辑
-    # 目前返回模拟的日志数据
+    # 直接允许查看日志，不做权限检查
     logs = [
         f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] INFO: {service_name} 服务运行中...",
         f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] INFO: 内存使用率: {random.randint(30, 80)}%",
         f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] INFO: 处理请求..."
     ]
-    
     return jsonify({'logs': logs})
 
 if __name__ == '__main__':
